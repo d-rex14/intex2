@@ -1,7 +1,8 @@
+import React from 'react'
 import { Link, useLocation, Outlet } from 'react-router-dom'
 import { useState } from 'react'
 import { Menu, X, Eye } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from './src/context/AuthContext'
 
 export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false)

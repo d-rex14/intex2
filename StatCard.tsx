@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react'
+
 interface StatCardProps {
     label: string
     value: string | number
     sub?: string
     accent?: 'amber' | 'teal' | 'crimson' | 'default'
-    icon?: React.ReactNode
+    icon?: ReactNode
   }
   
   const accentMap = {

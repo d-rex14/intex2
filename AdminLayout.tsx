@@ -1,3 +1,4 @@
+import React from 'react'
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
@@ -14,7 +15,7 @@ import {
   ChevronLeft,
   Bell,
 } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from './src/context/AuthContext'
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
