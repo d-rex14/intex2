@@ -27,3 +27,5 @@ dist-ssr/
 # Vercel
 .vercel/
 
+#the suggesstions file of what we may or may not build
+suggesstions.md 
