@@ -79,3 +79,6 @@ Dark theme: navy background (`#0a0e1a`), card surface (`#0f1729`), amber accent 
 - Security requirements (RBAC, HTTPS, password policies, secrets management)
 - Detailed feature requirements per admin page
 - Grading criteria and deliverables
+
+
+
