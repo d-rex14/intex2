@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Session, User } from '@supabase/supabase-js'
+import type { Provider, Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
 type Role = 'admin' | 'staff' | 'donor' | 'unknown'
@@ -17,6 +17,8 @@ interface AuthContextValue {
   role: Role
   loading: boolean
   signInWithPassword: (email: string, password: string) => Promise<{ error?: string }>
+  signUpWithPassword: (email: string, password: string) => Promise<{ error?: string; needsEmailConfirmation?: boolean }>
+  signInWithOAuth: (provider: Extract<Provider, 'google' | 'github'>) => Promise<{ error?: string }>
   signOut: () => Promise<void>
 }
 
@@ -86,6 +88,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
         const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) return { error: error.message }
+        return {}
+      },
+      signUpWithPassword: async (email: string, password: string) => {
+        if (!supabase) {
+          return {
+            error:
+              'Auth is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart the dev server.',
+          }
+        }
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        })
+        if (error) return { error: error.message }
+        return {
+          needsEmailConfirmation: Boolean(data.user && !data.session),
+        }
+      },
+      signInWithOAuth: async provider => {
+        if (!supabase) {
+          return {
+            error:
+              'Auth is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart the dev server.',
+          }
+        }
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        })
         if (error) return { error: error.message }
         return {}
       },
