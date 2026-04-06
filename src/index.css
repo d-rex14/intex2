@@ -1,13 +1,42 @@
 @import "tailwindcss";
 
-/* App base */
 :root {
-  color-scheme: dark;
+  /* Core palette */
+  --wt-cream: #fff6e9;
+  --wt-cream-2: #f1e9da;
+  --wt-orange: #f4a261;
+  --wt-orange-hover: #e38b4a;
+  --wt-blue: #a8dadc;
+  --wt-blue-hover: #7fc8d6;
+
+  /* Neutrals */
+  --wt-text: #2f2f2f;
+  --wt-text-2: #6b6b6b;
+  --wt-border: #e5e5e5;
+
+  /* App tokens */
+  --wt-bg: var(--wt-cream);
+  --wt-surface: var(--wt-cream-2);
+  --wt-accent: var(--wt-orange);
+  --wt-accent-hover: var(--wt-orange-hover);
+  --wt-accent-2: var(--wt-blue);
+  --wt-accent-2-hover: var(--wt-blue-hover);
+
+  color-scheme: light;
 }
 
 html,
 body,
 #root {
   height: 100%;
+}
+
+body {
+  background: var(--wt-bg);
+  color: var(--wt-text);
+}
+
+a {
+  color: inherit;
 }
 

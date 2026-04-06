@@ -32,33 +32,36 @@ export function CookieConsent() {
 
   return (
     <div
-      className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-md z-50 rounded-2xl border border-[#1e3a5f] bg-[#0f1729] shadow-2xl p-5"
+      className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-md z-50 rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] shadow-2xl p-5 text-[var(--wt-text)]"
       role="dialog"
       aria-label="Cookie consent"
     >
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/30">
-          <Cookie size={16} className="text-amber-400" />
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] border border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]">
+          <Cookie size={16} className="text-[var(--wt-accent)]" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white mb-1">Cookie Notice</p>
-          <p className="text-xs text-[#8da0c4] leading-relaxed">
+          <p className="text-sm font-semibold mb-1">Cookie Notice</p>
+          <p className="text-xs text-[var(--wt-text-2)] leading-relaxed">
             We use essential cookies to keep you signed in and remember your preferences. We do not use advertising or
             tracking cookies.{' '}
-            <Link to="/privacy" className="text-amber-400 underline underline-offset-2 hover:text-amber-300">
+            <Link
+              to="/privacy"
+              className="text-[var(--wt-accent)] underline underline-offset-2 hover:text-[var(--wt-accent-hover)]"
+            >
               Privacy Policy
             </Link>
           </p>
           <div className="mt-3 flex gap-2">
             <button
               onClick={accept}
-              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-amber-400 transition-colors"
+              className="rounded-lg bg-[var(--wt-accent)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
             >
               Accept
             </button>
             <button
               onClick={decline}
-              className="rounded-lg border border-[#1e3a5f] px-3 py-1.5 text-xs font-medium text-[#8da0c4] hover:bg-[#1a2340] hover:text-white transition-colors"
+              className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs font-medium text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors"
             >
               Decline
             </button>
@@ -66,7 +69,7 @@ export function CookieConsent() {
         </div>
         <button
           onClick={decline}
-          className="text-[#4a5a7a] hover:text-[#8da0c4] transition-colors shrink-0"
+          className="text-[var(--wt-text-2)] hover:text-[var(--wt-text)] transition-colors shrink-0"
           aria-label="Dismiss"
         >
           <X size={16} />

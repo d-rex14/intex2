@@ -39,17 +39,17 @@ export function AdminLayout() {
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
     <div className="flex h-full flex-col">
       <div
-        className={`flex h-16 items-center border-b border-[#1e3a5f] px-4 ${
+        className={`flex h-16 items-center border-b border-[var(--wt-border)] px-4 ${
           collapsed && !mobile ? 'justify-center' : 'gap-3'
         }`}
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/30">
-          <Eye size={16} className="text-amber-400" />
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] border border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]">
+          <Eye size={16} className="text-[var(--wt-accent)]" />
         </div>
         {(!collapsed || mobile) && (
           <div>
-            <span className="font-display text-sm font-bold text-white">Watchtower</span>
-            <p className="text-[10px] text-[#4a5a7a] uppercase tracking-widest">Staff Portal</p>
+            <span className="font-display text-sm font-bold text-[var(--wt-text)]">Watchtower</span>
+            <p className="text-[10px] text-[var(--wt-text-2)] uppercase tracking-widest">Staff Portal</p>
           </div>
         )}
       </div>
@@ -64,8 +64,8 @@ export function AdminLayout() {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-3 py-2.5 mb-1 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                  : 'text-[#8da0c4] hover:bg-[#1a2340] hover:text-white'
+                  ? 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-text)] border border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]'
+                  : 'text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)]'
               } ${collapsed && !mobile ? 'justify-center' : ''}`
             }
             title={collapsed && !mobile ? item.label : undefined}
@@ -76,16 +76,16 @@ export function AdminLayout() {
         ))}
       </nav>
 
-      <div className="border-t border-[#1e3a5f] p-3">
+      <div className="border-t border-[var(--wt-border)] p-3">
         {(!collapsed || mobile) && (
-          <div className="mb-2 px-2 py-1.5 rounded-lg bg-[#1a2340]">
-            <p className="text-xs font-medium text-white truncate">{user?.email}</p>
-            <p className="text-[10px] uppercase tracking-widest text-amber-400 font-medium">{role}</p>
+          <div className="mb-2 px-2 py-1.5 rounded-lg bg-[var(--wt-surface)] border border-[var(--wt-border)]">
+            <p className="text-xs font-medium text-[var(--wt-text)] truncate">{user?.email}</p>
+            <p className="text-[10px] uppercase tracking-widest text-[var(--wt-accent)] font-medium">{role}</p>
           </div>
         )}
         <button
           onClick={handleSignOut}
-          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#8da0c4] hover:bg-red-500/10 hover:text-red-400 transition-colors ${
+          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,#dc2626_12%,transparent)] hover:text-[#dc2626] transition-colors ${
             collapsed && !mobile ? 'justify-center' : ''
           }`}
         >
@@ -97,9 +97,9 @@ export function AdminLayout() {
   )
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a] flex">
+    <div className="min-h-screen bg-[var(--wt-bg)] text-[var(--wt-text)] flex">
       <aside
-        className={`hidden md:flex flex-col border-r border-[#1e3a5f] bg-[#0f1729] transition-all duration-300 ${
+        className={`hidden md:flex flex-col border-r border-[var(--wt-border)] bg-[var(--wt-surface)] transition-all duration-300 ${
           collapsed ? 'w-16' : 'w-64'
         }`}
       >
@@ -108,10 +108,10 @@ export function AdminLayout() {
 
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
-          <aside className="relative w-72 bg-[#0f1729] border-r border-[#1e3a5f] flex flex-col z-10">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setMobileOpen(false)} />
+          <aside className="relative w-72 bg-[var(--wt-surface)] border-r border-[var(--wt-border)] flex flex-col z-10">
             <button
-              className="absolute top-4 right-4 text-[#8da0c4] hover:text-white"
+              className="absolute top-4 right-4 text-[var(--wt-text-2)] hover:text-[var(--wt-text)]"
               onClick={() => setMobileOpen(false)}
             >
               <X size={20} />
@@ -122,9 +122,9 @@ export function AdminLayout() {
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-30 flex h-16 items-center border-b border-[#1e3a5f] bg-[#0a0e1a]/90 backdrop-blur-md px-4 gap-3">
+        <header className="sticky top-0 z-30 flex h-16 items-center border-b border-[var(--wt-border)] bg-[color-mix(in_srgb,var(--wt-bg)_90%,transparent)] backdrop-blur-md px-4 gap-3">
           <button
-            className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-[#8da0c4] hover:bg-[#1a2340] hover:text-white transition-colors"
+            className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors"
             onClick={() => setCollapsed(c => !c)}
             aria-label="Toggle sidebar"
           >
@@ -132,7 +132,7 @@ export function AdminLayout() {
           </button>
 
           <button
-            className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg text-[#8da0c4] hover:bg-[#1a2340] hover:text-white"
+            className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)]"
             onClick={() => setMobileOpen(true)}
             aria-label="Open navigation"
           >
@@ -142,14 +142,17 @@ export function AdminLayout() {
           <div className="flex-1" />
 
           <button
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-[#8da0c4] hover:bg-[#1a2340] hover:text-white transition-colors relative"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors relative"
             aria-label="Notifications"
           >
             <Bell size={18} />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-500" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[var(--wt-accent)]" />
           </button>
 
-          <Link to="/" className="text-xs text-[#4a5a7a] hover:text-[#8da0c4] transition-colors hidden sm:block">
+          <Link
+            to="/"
+            className="text-xs text-[var(--wt-text-2)] hover:text-[var(--wt-text)] transition-colors hidden sm:block"
+          >
             ← Public Site
           </Link>
         </header>
