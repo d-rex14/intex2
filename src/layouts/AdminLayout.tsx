@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
   BarChart3,
   Bell,
@@ -13,7 +13,10 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { RequirePortalAccess } from '../components/RequirePortalAccess'
 import { useAuth } from '../context/AuthContext'
+import { canAccessNavPath } from '../lib/roles'
+import { isSupabaseConfigured } from '../lib/supabase'
 import watchtowerLogo from '../assets/branding/watchtower-logo-transparent.png'
 
 const navItems = [
@@ -26,10 +29,19 @@ const navItems = [
 ]
 
 export function AdminLayout() {
-  const { user, role, signOut } = useAuth()
+  const { user, role, signOut, effectiveRoleIds, rolesLoading } = useAuth()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const visibleNavItems = useMemo(() => {
+    return navItems.filter(item => {
+      if (isSupabaseConfigured && rolesLoading) {
+        return item.to === '/admin'
+      }
+      return canAccessNavPath(effectiveRoleIds, item.to)
+    })
+  }, [effectiveRoleIds, rolesLoading])
 
   const handleSignOut = async () => {
     await signOut()
@@ -57,7 +69,7 @@ export function AdminLayout() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-2">
-        {navItems.map(item => (
+        {visibleNavItems.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -160,7 +172,7 @@ export function AdminLayout() {
         </header>
 
         <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
-          <Outlet />
+          <RequirePortalAccess />
         </main>
       </div>
     </div>
