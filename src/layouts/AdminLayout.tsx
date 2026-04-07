@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import lighthouseLogo from '../assets/branding/lighthouse-logo-transparent.png'
+import watchtowerLogo from '../assets/branding/watchtower-logo-transparent.png'
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -44,8 +44,8 @@ export function AdminLayout() {
         }`}
       >
         <img
-          src={lighthouseLogo}
-          alt="Lighthouse Sanctuary"
+          src={watchtowerLogo}
+          alt="Watchtower Sanctuary"
           className="h-16 w-auto shrink-0 object-contain"
         />
         {(!collapsed || mobile) && (

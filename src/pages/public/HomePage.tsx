@@ -10,32 +10,32 @@ import empowermentIcon from '../../assets/icons/empowerment.png'
 const PROGRAMS = [
   {
     title: 'Physiological Needs',
-    href: `${ORG.legacySite}/project/physiological-needs/`,
+    to: '/phys-needs',
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2024/10/5DED2490-E094-4E0A-A25C-AC962EAEE506.jpg',
   },
   {
     title: 'Biological Needs',
-    href: `${ORG.legacySite}/project/safety-needs/`,
+    to: '/bio-needs',
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2014/06/Hands_Circle.jpg',
   },
   {
     title: 'Spiritual Needs',
-    href: `${ORG.legacySite}/project/spiritual-needs/`,
+    to: '/spirit-needs',
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2024/10/60E9EC18-B817-4566-AA17-45EE89541594-e1727840646134.jpg',
   },
   {
     title: 'Psychological Needs',
-    href: `${ORG.legacySite}/project/emotional-needs/`,
+    to: '/psyc-needs',
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2014/06/BackwardsJump-e1741389606772.jpg',
   },
   {
     title: 'Social Needs',
-    href: `${ORG.legacySite}/project/esteem-needs/`,
+    to: '/social-needs',
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2014/06/PinkShirtPinkFlower.jpg',
   },
   {
     title: 'Love and Belonging',
-    href: `${ORG.legacySite}/project/social-needs/`,
+    to: '/love-belong',
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2014/06/GreenGrassFingerStar-e1741389539890.jpg',
   },
 ] as const
@@ -43,12 +43,12 @@ const PROGRAMS = [
 const RECENT_POSTS = [
   {
     id: 'highs-and-lows-of-lighthouse',
-    title: 'Highs and Lows of Lighthouse',
+    title: 'Highs and Lows of Watchtower',
     date: 'May 11, 2025',
     href: `${ORG.legacySite}/2025/05/11/highs-and-lows-of-lighthouse/`,
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/09/372419701_1269541816887826_2749329426990876735_n.jpg',
     excerpt:
-      'I’ve struggled to write a blog for some time because I so desperately want to encapsulate everything Lighthouse is—but that’s not possible.',
+      'I’ve struggled to write a blog for some time because I so desperately want to encapsulate everything Watchtower is—but that’s not possible.',
   },
   {
     id: 'the-power-of-light',
@@ -57,7 +57,7 @@ const RECENT_POSTS = [
     href: `${ORG.legacySite}/2024/12/11/the-power-of-light/`,
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2025/03/DSC00649-scaled-e1743538384800.jpg',
     excerpt:
-      'I took a phone call recently that inspired this blog. A potential donor called, eager to help the survivors at Lighthouse…',
+      'I took a phone call recently that inspired this blog. A potential donor called, eager to help the survivors at Watchtower…',
   },
   {
     id: 'thankful-to-celebrate-5-years',
@@ -66,7 +66,7 @@ const RECENT_POSTS = [
     href: `${ORG.legacySite}/2023/09/12/thankful-to-celebrate-5-years/`,
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/09/img_0ae5140b8863-1.jpeg',
     excerpt:
-      'It’s been 5 years since we opened the doors to Lighthouse Sanctuary here in the Philippines.',
+      'It’s been 5 years since we opened the doors to Watchtower Sanctuary here in the Philippines.',
   },
 ] as const
 
@@ -77,7 +77,7 @@ export function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
           <div className="grid gap-10 lg:grid-cols-2 lg:gap-12 items-center">
             <div>
-              <p className="text-sm uppercase tracking-widest text-[var(--wt-accent)] font-semibold">Lighthouse Sanctuary</p>
+              <p className="text-sm uppercase tracking-widest text-[var(--wt-accent)] font-semibold">Watchtower Sanctuary</p>
               <h1 className="mt-3 font-display text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight">
                 Safety. Healing. Justice. Empowerment.
               </h1>
@@ -98,12 +98,6 @@ export function HomePage() {
                   className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-5 py-2.5 text-sm font-semibold text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] transition-colors"
                 >
                   All ways to give
-                </Link>
-                <Link
-                  to="/login"
-                  className="rounded-lg border border-transparent px-5 py-2.5 text-sm font-semibold text-[var(--wt-text-2)] hover:text-[var(--wt-text)] transition-colors"
-                >
-                  Staff sign in
                 </Link>
               </div>
             </div>
@@ -128,7 +122,7 @@ export function HomePage() {
             {[
               {
                 title: 'Safety',
-                text: 'Safety is the number one focus of Lighthouse Sanctuary since it is the first step of healing.',
+                text: 'Safety is the number one focus of Watchtower Sanctuary since it is the first step of healing.',
                 icon: safetyIcon,
                 shape: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/08/service-shape-01.png',
                 to: '/safety',
@@ -142,7 +136,7 @@ export function HomePage() {
               },
               {
                 title: 'Justice',
-                text: 'Lighthouse does not encourage or discourage children to file cases—we support them in pursuing what justice means for them.',
+                text: 'Watchtower does not encourage or discourage children to file cases—we support them in pursuing what justice means for them.',
                 icon: justiceIcon,
                 shape: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/08/service-shape-03.png',
                 to: '/justice',
@@ -209,14 +203,14 @@ export function HomePage() {
             />
             <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-accent-2)] p-4 flex items-center">
               <p className="text-sm font-medium text-[var(--wt-text)] italic leading-relaxed">
-                “Lighthouse is a safe place, where we are treated as family”
+                “Watchtower is a safe place, where we are treated as family”
               </p>
             </div>
           </div>
           <div>
-            <p className="text-sm uppercase tracking-widest text-[var(--wt-accent)] font-semibold">Lighthouse Sanctuary motto</p>
+            <p className="text-sm uppercase tracking-widest text-[var(--wt-accent)] font-semibold">Watchtower Sanctuary motto</p>
             <p className="mt-4 text-[var(--wt-text)] leading-relaxed">
-              We are Lighthouse: full of hope, love and new beginnings. Our focus is progress in all aspects of life. We treat
+              We are Watchtower: full of hope, love and new beginnings. Our focus is progress in all aspects of life. We treat
               each other as family where each individual is seen, heard and loved. We create fun memories, we fight for justice
               and we acknowledge God in all we do.
             </p>
@@ -244,11 +238,9 @@ export function HomePage() {
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {PROGRAMS.map(p => (
-              <a
-                key={p.href}
-                href={p.href}
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                key={p.to}
+                to={p.to}
                 className="group rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] overflow-hidden hover:border-[var(--wt-accent)] transition-colors"
               >
                 <div className="aspect-[4/3] overflow-hidden">
@@ -261,7 +253,7 @@ export function HomePage() {
                 <div className="p-4">
                   <p className="font-semibold text-[var(--wt-text)] group-hover:text-[var(--wt-accent)]">{p.title}</p>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         </section>

@@ -37,7 +37,7 @@ function Article({ post }: { post: BlogPost }) {
               rel="noopener noreferrer"
               className="inline-flex font-semibold text-[var(--wt-accent)] hover:underline"
             >
-              Read full article on Lighthouse Sanctuary →
+              Read full article on Watchtower Sanctuary →
             </a>
           </>
         )}
@@ -49,30 +49,30 @@ function Article({ post }: { post: BlogPost }) {
 const POSTS: BlogPost[] = [
   {
     id: 'highs-and-lows-of-lighthouse',
-    title: 'Highs and Lows of Lighthouse',
+    title: 'Highs and Lows of Watchtower',
     date: 'May 11, 2025',
     author: 'Jewelz',
     image: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/09/372419701_1269541816887826_2749329426990876735_n.jpg',
     sourceUrl: `${ORG.legacySite}/2025/05/11/highs-and-lows-of-lighthouse/`,
     excerpt:
-      'I’ve struggled to write a blog for some time because I so desperately want to encapsulate everything Lighthouse is—but that’s not possible.',
+      'I’ve struggled to write a blog for some time because I so desperately want to encapsulate everything Watchtower is—but that’s not possible.',
     body: (
       <>
         <p>
-          I’ve struggled to write a blog for some time because I so desperately want to encapsulate everything Lighthouse is—but
+          I’ve struggled to write a blog for some time because I so desperately want to encapsulate everything Watchtower is—but
           that’s not possible. It’s a little bit of everything. As I re-entered its doors this month, I was reminded why it’s so
-          hard to put into words what it’s like to be at Lighthouse.
+          hard to put into words what it’s like to be at Watchtower.
         </p>
         <p>
           Within moments of being there, a child I love ran up to me, hugged me, and thanked me for helping her find justice after
-          six long years. She was excited and happy. I felt deep joy and gratitude for the existence of Lighthouse and the hope
+          six long years. She was excited and happy. I felt deep joy and gratitude for the existence of Watchtower and the hope
           these children now have for justice. Shortly after that joyful moment, I learned there were death threats against her
           family because her perpetrators had been found guilty. I hurt for each of them!
         </p>
         <p>
           Within the same hour, I was consoling another child in the shelter who had just found out her father had passed away.
           He was the only safe person in her life—the only family member she had hoped to reunite with after her court hearings
-          finished. She went from feeling grateful for the years Lighthouse had protected and supported her, to wondering if life
+          finished. She went from feeling grateful for the years Watchtower had protected and supported her, to wondering if life
           was hopeless.
         </p>
         <p>
@@ -83,7 +83,7 @@ const POSTS: BlogPost[] = [
         <p>
           I turned to the next child, who wanted to express how grateful she was because she was about to receive eye
           surgery—something she’d waited for her whole life. Though unrelated to her abuse, kind doctors from the hospital had
-          been inspired by the work of Lighthouse and offered to help. She was overwhelmed with appreciation for those trying to
+          been inspired by the work of Watchtower and offered to help. She was overwhelmed with appreciation for those trying to
           make her life better and so were we.
         </p>
         <p>
@@ -92,10 +92,10 @@ const POSTS: BlogPost[] = [
           her gratitude shown through!
         </p>
         <p>
-          This is just a glimpse into a few moments at the shelter. Currently, there are 15 children at Lighthouse. Each one has
+          This is just a glimpse into a few moments at the shelter. Currently, there are 15 children at Watchtower. Each one has
           their own story—each with highs and lows. Each day, I witness tears of hopelessness, frustration, sadness, and fear
           for the future. And within that same day, I see these girls dance, laugh, and express gratitude for the good in their
-          lives. There’s no easy way to express what Lighthouse is. It doesn’t magically take away every pain or trial, but it
+          lives. There’s no easy way to express what Watchtower is. It doesn’t magically take away every pain or trial, but it
           gives purpose, hope, and help to those facing what once felt impossible.
         </p>
         <p>
@@ -104,14 +104,14 @@ const POSTS: BlogPost[] = [
           allowed me to witness how God calls people who are equipped: whether through medical expertise, financial support, or
           simply being a shoulder to cry on. He has a way to ease pains and heal wounds and that way is generally through His
           disciples. Each of us has been given gifts that allow us to ease others burdens and in so doing we find more hope and
-          healing in our own lives. Lighthouse is God’s work. It brings hope to the hopeless, healing to the afflicted, and help
+          healing in our own lives. Watchtower is God’s work. It brings hope to the hopeless, healing to the afflicted, and help
           to the vulnerable. It is a work that requires many hands.
         </p>
         <p>
-          Thank you to everyone who continues to donate and volunteer. <strong>We need you! These children need Lighthouse</strong>
-          ! <strong>And Lighthouse is only possible through your continued support.</strong> Please keep giving. Please invite your
+          Thank you to everyone who continues to donate and volunteer. <strong>We need you! These children need Watchtower</strong>
+          ! <strong>And Watchtower is only possible through your continued support.</strong> Please keep giving. Please invite your
           friends to help. The children pray for you—and we pray that you receive the blessings you need as you sacrifice for what
-          they need. From all of us at Lighthouse, we send our love—and thank you from the bottom of our hearts for your support.
+          they need. From all of us at Watchtower, we send our love—and thank you from the bottom of our hearts for your support.
         </p>
       </>
     ),
@@ -124,18 +124,18 @@ const POSTS: BlogPost[] = [
     image: 'https://www.lighthousesanctuary.org/wp-content/uploads/2025/03/DSC00649-scaled-e1743538384800.jpg',
     sourceUrl: `${ORG.legacySite}/2024/12/11/the-power-of-light/`,
     excerpt:
-      'I took a phone call recently that inspired this blog. A potential donor called, eager to help the survivors at Lighthouse…',
+      'I took a phone call recently that inspired this blog. A potential donor called, eager to help the survivors at Watchtower…',
     body: (
       <>
         <p>
           I took a phone call recently that inspired this blog. A potential donor called, eager to help the survivors at
-          Lighthouse, and she declared boldly how she could “just kill the evil, disgusting men who were responsible for their
+          Watchtower, and she declared boldly how she could “just kill the evil, disgusting men who were responsible for their
           abuse.”
         </p>
         <p>
           Honestly I was saddened by her response! Although I was grateful for her desire to help, I realized that she was only
           able to see a small glimpse into this work. I wanted to give her the privilege of seeing the beauty of what is happening
-          in Lighthouse, but I wasn’t sure where to start.
+          in Watchtower, but I wasn’t sure where to start.
         </p>
         <p>
           It’s hard to talk about child sexual abuse without a lot of hard emotions. It’s one of the darkest subjects that exists.
@@ -195,7 +195,7 @@ const POSTS: BlogPost[] = [
         <p>
           Thank you to all who have joined the fight by choosing to lay down your weapons of darkness (anger, hatred, jealousy,
           self-pity, shame) and take on the power of light (Peace, hope, joy, mercy, patience and faithfulness). The world is
-          brighter with your help and the work of Lighthouse is stronger because of you!
+          brighter with your help and the work of Watchtower is stronger because of you!
         </p>
       </>
     ),
@@ -207,11 +207,11 @@ const POSTS: BlogPost[] = [
     author: 'Jewelz',
     image: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/09/img_0ae5140b8863-1.jpeg',
     sourceUrl: `${ORG.legacySite}/2023/09/12/thankful-to-celebrate-5-years/`,
-    excerpt: 'It’s been 5 years since we opened the doors to Lighthouse Sanctuary here in the Philippines.',
+    excerpt: 'It’s been 5 years since we opened the doors to Watchtower Sanctuary here in the Philippines.',
     body: (
       <>
         <p>
-          It’s been 5 years since we opened the doors to Lighthouse Sanctuary here in the Philippines. I remember receiving our
+          It’s been 5 years since we opened the doors to Watchtower Sanctuary here in the Philippines. I remember receiving our
           license in August 2018 and thinking, “Oh I hope we can manage the flood of children who will be referred.” August
           passed and no one was referred, September passed and no one was referred, October I cried most of the month and then
           started to question the work that we had put in for the 2 years prior. By November I knew I needed to submit to His
@@ -223,7 +223,7 @@ const POSTS: BlogPost[] = [
           (still Thanksgiving Day in the US) an 11 year old girl was referred. She spoke a foreign dialect to all, and was
           confused and angry. That Thanksgiving weekend my heart was so full of gratitude to God for every aspect of my life! I
           knew that these girls were His children and it was a privilege to be in a position of helping them. Within 2 weeks there
-          were two more children referred and I could see that Lighthouse Sanctuary was now in full swing.
+          were two more children referred and I could see that Watchtower Sanctuary was now in full swing.
         </p>
         <p>
           The work was hard!!! The first children were not sure they could trust us, since there weren’t any other children to
@@ -242,8 +242,8 @@ const POSTS: BlogPost[] = [
         <p>
           We got home in 2019 just before the school year started and I promised my kids a school year in Utah before returning to
           the Philippines, although I had no idea what the Lord’s plan really was. Fast forward six months, the pandemic ended
-          their school year and we were stuck in Utah for a full year longer. Lighthouse Sanctuary was able to be a refuge during
-          the pandemic and grew in strength and number as time went on. It was another testament to me that Lighthouse is God’s
+          their school year and we were stuck in Utah for a full year longer. Watchtower Sanctuary was able to be a refuge during
+          the pandemic and grew in strength and number as time went on. It was another testament to me that Watchtower is God’s
           and He is just allowing people the privilege to do the work. It was also a testament to me that God knew what was coming
           and He knew what our family needed.
         </p>
@@ -258,17 +258,17 @@ const POSTS: BlogPost[] = [
           were referred and they started spreading the word. In these 5 years of operations, we have now served 100 children. Most
           have returned back to their homes or a home of a safe family. 12 still continue to enjoy safety within the shelter as of
           today. Some left with the skills of a great leader for their families and friends. Others are still learning and
-          growing, but all say they cannot deny the love they felt at Lighthouse.
+          growing, but all say they cannot deny the love they felt at Watchtower.
         </p>
         <p>
           Our family recently moved closer to the new shelter, (7 hours from the first) in order to hire, train and prepare it for
           children. The building is estimated for completion and ready for occupancy before Thanksgiving Day of this year. We are
           already feeling so thankful for the opportunity to see how God works through his disciples, imperfect and all, to create
-          miracles that bless the lives of so many. To God be the glory for the first 5 years of miracles for Lighthouse! May His
+          miracles that bless the lives of so many. To God be the glory for the first 5 years of miracles for Watchtower! May His
           name be praised for every success, every step of progress, every ounce of hope added to this work and this world.
         </p>
         <p>
-          Happy 5th Anniversary to every donor who makes Lighthouse possible, to every child who benefitted and every staff member
+          Happy 5th Anniversary to every donor who makes Watchtower possible, to every child who benefitted and every staff member
           who served diligently! May God’s love continue to pour over you.
         </p>
         <p className="text-sm text-[var(--wt-text-2)]">
@@ -328,7 +328,7 @@ const POSTS: BlogPost[] = [
     image: 'https://www.lighthousesanctuary.org/wp-content/uploads/2017/12/img_2689-scaled.jpg',
     sourceUrl: `${ORG.legacySite}/2017/12/16/a-land-prepared/`,
     excerpt:
-      'When you witness a miracle, you want the world to know! The journey to Lighthouse Sanctuary has been full of miracles, some small and others unforgettable!',
+      'When you witness a miracle, you want the world to know! The journey to Watchtower Sanctuary has been full of miracles, some small and others unforgettable!',
   },
   {
     id: 'lights-along-the-shore',
@@ -372,7 +372,7 @@ export function BlogPage() {
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="font-display text-3xl sm:text-4xl font-bold text-[var(--wt-text)] tracking-tight">Blog</h1>
       <p className="mt-2 text-[var(--wt-text-2)] max-w-2xl">
-        Stories and reflections from Lighthouse Sanctuary. Older posts link to the full article on the original WordPress
+        Stories and reflections from Watchtower Sanctuary. Older posts link to the full article on the original WordPress
         site—including photo galleries and comments.
       </p>
       <div className="mt-12 space-y-12 max-w-3xl">

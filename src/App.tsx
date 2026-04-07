@@ -10,7 +10,18 @@ import { BlogPage } from './pages/public/BlogPage'
 import { ContactPage } from './pages/public/ContactPage'
 import { DonationsPage } from './pages/public/DonationsPage'
 import { HomePage } from './pages/public/HomePage'
-import { EmpowermentPage, HealingPage, JusticePage, SafetyPage } from './pages/public/ProgramPages'
+import {
+  BiologicalNeedsPage,
+  EmpowermentPage,
+  HealingPage,
+  JusticePage,
+  LoveBelongingPage,
+  PhysiologicalNeedsPage,
+  PsychologicalNeedsPage,
+  SafetyPage,
+  SocialNeedsPage,
+  SpiritualNeedsPage,
+} from './pages/public/ProgramPages'
 import { SocialPage } from './pages/public/SocialPage'
 
 function PageShell({
@@ -302,6 +313,12 @@ export function App() {
           <Route path="healing" element={<HealingPage />} />
           <Route path="justice" element={<JusticePage />} />
           <Route path="empowerment" element={<EmpowermentPage />} />
+          <Route path="phys-needs" element={<PhysiologicalNeedsPage />} />
+          <Route path="bio-needs" element={<BiologicalNeedsPage />} />
+          <Route path="spirit-needs" element={<SpiritualNeedsPage />} />
+          <Route path="psyc-needs" element={<PsychologicalNeedsPage />} />
+          <Route path="social-needs" element={<SocialNeedsPage />} />
+          <Route path="love-belong" element={<LoveBelongingPage />} />
           <Route path="impact" element={<Navigate to="/donations" replace />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="login" element={<LoginPage />} />

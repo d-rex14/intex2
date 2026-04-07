@@ -1,4 +1,4 @@
-/** Contact, donation, and social URLs from the Lighthouse Sanctuary legacy site. */
+/** Contact, donation, and social URLs from the Watchtower Sanctuary legacy site. */
 export const ORG = {
   legacySite: 'https://www.lighthousesanctuary.org',
   paypalHosted: 'https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=QRPP8FYHJWLZY',

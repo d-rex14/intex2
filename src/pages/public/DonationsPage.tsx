@@ -7,12 +7,12 @@ export function DonationsPage() {
       <h1 className="font-display text-3xl sm:text-4xl font-bold text-[var(--wt-text)] tracking-tight">Donations</h1>
       <div className="mt-8 max-w-3xl space-y-6 text-[var(--wt-text)] leading-relaxed">
         <p>
-          Lighthouse Sanctuary is a 501(c)(3) (EIN {ORG.ein}) organization that focuses on safety and healing for
+          Watchtower Sanctuary is a 501(c)(3) (EIN {ORG.ein}) organization that focuses on safety and healing for
           children-survivors of sexual abuse and sex trafficking.
         </p>
         <p>
           Your donation will change the course of a child&apos;s life. The holistic healing provided to the children of
-          Lighthouse Sanctuary is only possible with your financial help.
+          Watchtower Sanctuary is only possible with your financial help.
         </p>
         <ul className="list-disc pl-6 space-y-2 text-[var(--wt-text-2)]">
           <li>$15 a month will provide essential vitamins for a child</li>
@@ -22,9 +22,9 @@ export function DonationsPage() {
           <li>$1,500 a month will pay for the mortgage that provides refuge for all of the children</li>
         </ul>
         <p>
-          The total monthly expenses of Lighthouse Sanctuary are nearly $11,000, and every penny is spent in providing refuge,
+          The total monthly expenses of Watchtower Sanctuary are nearly $11,000, and every penny is spent in providing refuge,
           rehabilitation, and reintegration services for children-survivors of sexual exploitation. Thank you for making this
-          world a brighter place by helping to support the children of Lighthouse Sanctuary!
+          world a brighter place by helping to support the children of Watchtower Sanctuary!
         </p>
       </div>
 
