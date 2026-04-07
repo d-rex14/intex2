@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ORG } from '../../content/org'
 
 type BlogPost = {
@@ -353,6 +354,20 @@ const POSTS: BlogPost[] = [
 ]
 
 export function BlogPage() {
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!location.hash) return
+    const id = location.hash.replace('#', '')
+    const el = document.getElementById(id)
+    if (!el) return
+
+    // Wait one frame so layout is fully painted before scrolling.
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'auto', block: 'start' })
+    })
+  }, [location.hash])
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="font-display text-3xl sm:text-4xl font-bold text-[var(--wt-text)] tracking-tight">Blog</h1>

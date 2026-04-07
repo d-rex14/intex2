@@ -42,6 +42,7 @@ const PROGRAMS = [
 
 const RECENT_POSTS = [
   {
+    id: 'highs-and-lows-of-lighthouse',
     title: 'Highs and Lows of Lighthouse',
     date: 'May 11, 2025',
     href: `${ORG.legacySite}/2025/05/11/highs-and-lows-of-lighthouse/`,
@@ -50,6 +51,7 @@ const RECENT_POSTS = [
       'I’ve struggled to write a blog for some time because I so desperately want to encapsulate everything Lighthouse is—but that’s not possible.',
   },
   {
+    id: 'the-power-of-light',
     title: 'The Power of Light',
     date: 'December 11, 2024',
     href: `${ORG.legacySite}/2024/12/11/the-power-of-light/`,
@@ -58,6 +60,7 @@ const RECENT_POSTS = [
       'I took a phone call recently that inspired this blog. A potential donor called, eager to help the survivors at Lighthouse…',
   },
   {
+    id: 'thankful-to-celebrate-5-years',
     title: 'Thankful to Celebrate 5 Years',
     date: 'September 12, 2023',
     href: `${ORG.legacySite}/2023/09/12/thankful-to-celebrate-5-years/`,
@@ -128,24 +131,28 @@ export function HomePage() {
                 text: 'Safety is the number one focus of Lighthouse Sanctuary since it is the first step of healing.',
                 icon: safetyIcon,
                 shape: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/08/service-shape-01.png',
+                to: '/safety',
               },
               {
                 title: 'Healing',
                 text: 'Once a child trusts that they are safe they begin the healing process.',
                 icon: healingIcon,
                 shape: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/08/service-shape-02.png',
+                to: '/healing',
               },
               {
                 title: 'Justice',
                 text: 'Lighthouse does not encourage or discourage children to file cases—we support them in pursuing what justice means for them.',
                 icon: justiceIcon,
                 shape: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/08/service-shape-03.png',
+                to: '/justice',
               },
               {
                 title: 'Empowerment',
                 text: 'The goal is to help children move from a mindset of victimhood into leadership and advocacy.',
                 icon: empowermentIcon,
                 shape: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/08/service-shape-04.png',
+                to: '/empowerment',
               },
             ].map(item => (
               <div
@@ -158,7 +165,7 @@ export function HomePage() {
                 </div>
                 <h3 className="font-display text-lg font-bold text-[var(--wt-text)]">{item.title}</h3>
                 <p className="mt-2 text-sm text-[var(--wt-text-2)] leading-relaxed">{item.text}</p>
-                <Link to="/about" className="mt-3 inline-block text-sm font-semibold text-[var(--wt-accent)] hover:underline">
+                <Link to={item.to} className="mt-3 inline-block text-sm font-semibold text-[var(--wt-accent)] hover:underline">
                   Learn more →
                 </Link>
               </div>
@@ -314,12 +321,12 @@ export function HomePage() {
                 <div className="p-5 flex-1 flex flex-col">
                   <time className="text-xs uppercase tracking-widest text-[var(--wt-text-2)]">{post.date}</time>
                   <h3 className="mt-2 font-display text-lg font-bold text-[var(--wt-text)]">
-                    <Link to="/blog" className="hover:text-[var(--wt-accent)]">
+                    <Link to={`/blog#${post.id}`} className="hover:text-[var(--wt-accent)]">
                       {post.title}
                     </Link>
                   </h3>
                   <p className="mt-2 text-sm text-[var(--wt-text-2)] leading-relaxed flex-1">{post.excerpt}</p>
-                  <Link to="/blog" className="mt-4 text-sm font-semibold text-[var(--wt-accent)]">
+                  <Link to={`/blog#${post.id}`} className="mt-4 text-sm font-semibold text-[var(--wt-accent)]">
                     Read on blog →
                   </Link>
                 </div>
