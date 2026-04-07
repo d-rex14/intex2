@@ -5,6 +5,12 @@ import { AdminLayout } from './layouts/AdminLayout'
 import { CookieConsent } from './components/CookieConsent'
 import { useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
+import { AboutPage } from './pages/public/AboutPage'
+import { BlogPage } from './pages/public/BlogPage'
+import { ContactPage } from './pages/public/ContactPage'
+import { DonationsPage } from './pages/public/DonationsPage'
+import { HomePage } from './pages/public/HomePage'
+import { SocialPage } from './pages/public/SocialPage'
 
 function PageShell({
   title,
@@ -23,60 +29,6 @@ function PageShell({
       </div>
       {children}
     </div>
-  )
-}
-
-function HomePage() {
-  return (
-    <PageShell
-      title="Watchtower"
-      subtitle="A secure, modern operations and impact platform for survivor care, donor stewardship, and outreach analytics."
-    >
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
-          <p className="text-sm uppercase tracking-widest text-[var(--wt-accent)] font-medium">Mission</p>
-          <p className="mt-3 text-[var(--wt-text)] leading-relaxed">
-            Protect survivors, strengthen safehouse operations, and communicate anonymized impact—without compromising
-            privacy.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
-          <p className="text-sm uppercase tracking-widest text-[var(--wt-accent)] font-medium">Get started</p>
-          <p className="mt-3 text-[var(--wt-text)] leading-relaxed">
-            Staff can sign in to manage caseloads, process recordings, visitations, and reports.
-          </p>
-          <div className="mt-5 flex gap-3">
-            <Link
-              to="/login"
-              className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-            >
-              Staff Sign In
-            </Link>
-            <Link
-              to="/impact"
-              className="rounded-lg border border-[var(--wt-border)] px-4 py-2 text-sm font-semibold text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors"
-            >
-              View Impact
-            </Link>
-          </div>
-        </div>
-      </div>
-    </PageShell>
-  )
-}
-
-function ImpactPage() {
-  return (
-    <PageShell
-      title="Our Impact"
-      subtitle="Aggregated, anonymized metrics intended for public and donor-facing reporting."
-    >
-      <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
-        <p className="text-[var(--wt-text-2)] text-sm">
-          Hook this page up to your API (or Supabase tables like `public_impact_snapshots`) when ready.
-        </p>
-      </div>
-    </PageShell>
   )
 }
 
@@ -340,7 +292,12 @@ export function App() {
       <Routes>
         <Route element={<PublicLayout />}>
           <Route index element={<HomePage />} />
-          <Route path="impact" element={<ImpactPage />} />
+          <Route path="blog" element={<BlogPage />} />
+          <Route path="about" element={<AboutPage />} />
+          <Route path="contact" element={<ContactPage />} />
+          <Route path="social" element={<SocialPage />} />
+          <Route path="donations" element={<DonationsPage />} />
+          <Route path="impact" element={<Navigate to="/donations" replace />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="auth/callback" element={<AuthCallbackPage />} />

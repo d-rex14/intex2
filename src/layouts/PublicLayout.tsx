@@ -1,18 +1,25 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Eye, Menu, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
-  const { session, role } = useAuth()
+  const { session } = useAuth()
   const location = useLocation()
 
-  const navLinks = [
-    { to: '/', label: 'Home' },
-    { to: '/impact', label: 'Our Impact' },
-    { to: '/privacy', label: 'Privacy' },
-  ]
+  const navLinks = useMemo(() => {
+    const publicLinks = [
+      { to: '/', label: 'Home' },
+      { to: '/blog', label: 'Blog' },
+      { to: '/about', label: 'About' },
+      { to: '/contact', label: 'Contact' },
+      { to: '/social', label: 'Social' },
+      { to: '/donations', label: 'Donations' },
+    ]
+    if (!session) return publicLinks
+    return [...publicLinks, { to: '/admin', label: 'My Dashboard' }]
+  }, [session])
 
   const isActive = (to: string) => (to === '/' ? location.pathname === '/' : location.pathname.startsWith(to))
 
@@ -45,29 +52,12 @@ export function PublicLayout() {
             </nav>
 
             <div className="hidden md:flex items-center gap-3">
-              {session ? (
-                <Link
-                  to={role === 'admin' ? '/admin' : '/admin'}
-                  className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-                >
-                  Go to Portal
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    to="/login"
-                    className="text-sm font-medium text-[var(--wt-text-2)] hover:text-[var(--wt-text)] transition-colors"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    to="/impact"
-                    className="rounded-lg bg-[var(--wt-accent-2)] px-4 py-2 text-sm font-semibold text-[var(--wt-text)] hover:bg-[var(--wt-accent-2-hover)] transition-colors"
-                  >
-                    See Impact
-                  </Link>
-                </>
-              )}
+              <Link
+                to="/login"
+                className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
+              >
+                Sign In
+              </Link>
             </div>
 
             <button
@@ -95,23 +85,13 @@ export function PublicLayout() {
               </Link>
             ))}
             <div className="pt-2 border-t border-[var(--wt-border)]">
-              {session ? (
-                <Link
-                  to="/admin"
-                  onClick={() => setMenuOpen(false)}
-                  className="block w-full text-center rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-                >
-                  Go to Portal
-                </Link>
-              ) : (
-                <Link
-                  to="/login"
-                  onClick={() => setMenuOpen(false)}
-                  className="block w-full text-center rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-                >
-                  Staff Sign In
-                </Link>
-              )}
+              <Link
+                to="/login"
+                onClick={() => setMenuOpen(false)}
+                className="block w-full text-center rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
+              >
+                Sign In
+              </Link>
             </div>
           </div>
         )}
