@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -6,8 +6,9 @@ import watchtowerLogo from '../assets/branding/watchtower-logo-transparent.png'
 
 export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
-  const { session } = useAuth()
+  const { session, signOut } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
 
   const navLinks = useMemo(() => {
     const publicLinks = [
@@ -19,10 +20,16 @@ export function PublicLayout() {
       { to: '/donations', label: 'Donations' },
     ]
     if (!session) return publicLinks
-    return [...publicLinks, { to: '/admin', label: 'My Dashboard' }]
+    return [...publicLinks, { to: '/admin', label: 'My Portal' }]
   }, [session])
 
   const isActive = (to: string) => (to === '/' ? location.pathname === '/' : location.pathname.startsWith(to))
+
+  const handleSignOut = async () => {
+    await signOut()
+    setMenuOpen(false)
+    navigate('/', { replace: true })
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--wt-bg)] text-[var(--wt-text)]">
@@ -54,12 +61,21 @@ export function PublicLayout() {
             </nav>
 
             <div className="hidden md:flex items-center gap-3">
-              <Link
-                to="/login"
-                className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-              >
-                Sign In
-              </Link>
+              {session ? (
+                <button
+                  onClick={handleSignOut}
+                  className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
+                >
+                  Log Out
+                </button>
+              ) : (
+                <Link
+                  to="/login"
+                  className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
 
             <button
@@ -87,13 +103,22 @@ export function PublicLayout() {
               </Link>
             ))}
             <div className="pt-2 border-t border-[var(--wt-border)]">
-              <Link
-                to="/login"
-                onClick={() => setMenuOpen(false)}
-                className="block w-full text-center rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-              >
-                Sign In
-              </Link>
+              {session ? (
+                <button
+                  onClick={handleSignOut}
+                  className="block w-full text-center rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
+                >
+                  Log Out
+                </button>
+              ) : (
+                <Link
+                  to="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="block w-full text-center rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
           </div>
         )}
