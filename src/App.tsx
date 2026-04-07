@@ -23,6 +23,8 @@ import {
   SpiritualNeedsPage,
 } from './pages/public/ProgramPages'
 import { SocialPage } from './pages/public/SocialPage'
+import { SiteUsersPage } from './pages/portal/SiteUsersPage'
+import { YourDonationsPage } from './pages/portal/YourDonationsPage'
 
 function PageShell({
   title,
@@ -68,7 +70,7 @@ function LoginPage() {
   const [loading, setLoading] = React.useState(false)
   const [mode, setMode] = React.useState<'signin' | 'signup'>('signin')
 
-  if (session) return <Navigate to="/admin" replace />
+  if (session) return <Navigate to="/portal" replace />
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -237,7 +239,7 @@ function AuthCallbackPage() {
           await supabase.auth.getSession()
         }
 
-        if (!cancelled) navigate('/admin', { replace: true })
+        if (!cancelled) navigate('/portal', { replace: true })
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Authentication failed.'
         if (!cancelled) setError(msg)
@@ -325,8 +327,10 @@ export function App() {
           <Route path="auth/callback" element={<AuthCallbackPage />} />
         </Route>
 
+        <Route path="admin" element={<Navigate to="/portal" replace />} />
+
         <Route
-          path="admin"
+          path="portal"
           element={
             <RequireAuth>
               <AdminLayout />
@@ -337,8 +341,9 @@ export function App() {
           <Route path="donors" element={<AdminPlaceholder title="Donors & Contributions" />} />
           <Route path="caseload" element={<AdminPlaceholder title="Caseload Inventory" />} />
           <Route path="process-recordings" element={<AdminPlaceholder title="Process Recordings" />} />
-          <Route path="visitations" element={<AdminPlaceholder title="Visitations & Conferences" />} />
           <Route path="reports" element={<AdminPlaceholder title="Reports & Analytics" />} />
+          <Route path="your-donations" element={<YourDonationsPage />} />
+          <Route path="site-users" element={<SiteUsersPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

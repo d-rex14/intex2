@@ -20,7 +20,7 @@ export function PublicLayout() {
       { to: '/donations', label: 'Donations' },
     ]
     if (!session) return publicLinks
-    return [...publicLinks, { to: '/admin', label: 'My Portal' }]
+    return [...publicLinks, { to: '/portal', label: 'My Portal' }]
   }, [session])
 
   const isActive = (to: string) => (to === '/' ? location.pathname === '/' : location.pathname.startsWith(to))

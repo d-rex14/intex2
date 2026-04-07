@@ -1,0 +1,4 @@
+# Local / deploy config. Link project: supabase link --project-ref <ref>
+
+[functions.admin-site-users]
+verify_jwt = true
