@@ -4,7 +4,6 @@ import {
   BarChart3,
   Bell,
   ChevronLeft,
-  Eye,
   FileText,
   FolderOpen,
   Home,
@@ -15,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import watchtowerLogo from '../assets/branding/watchtower-logo-transparent.png'
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -39,16 +39,18 @@ export function AdminLayout() {
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
     <div className="flex h-full flex-col">
       <div
-        className={`flex h-16 items-center border-b border-[var(--wt-border)] px-4 ${
+        className={`flex h-20 items-center border-b border-[var(--wt-border)] px-4 ${
           collapsed && !mobile ? 'justify-center' : 'gap-3'
         }`}
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] border border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]">
-          <Eye size={16} className="text-[var(--wt-accent)]" />
-        </div>
+        <img
+          src={watchtowerLogo}
+          alt="Watchtower Sanctuary"
+          className="h-16 w-auto shrink-0 object-contain"
+        />
         {(!collapsed || mobile) && (
           <div>
-            <span className="font-display text-sm font-bold text-[var(--wt-text)]">Watchtower</span>
+            <span className="font-display text-sm font-bold text-[var(--wt-text)]">Portal</span>
             <p className="text-[10px] text-[var(--wt-text-2)] uppercase tracking-widest">Staff Portal</p>
           </div>
         )}
