@@ -2,17 +2,17 @@
 
 :root {
   /* Core palette */
-  --wt-cream: #fff6e9;
-  --wt-cream-2: #f1e9da;
-  --wt-orange: #f4a261;
-  --wt-orange-hover: #e38b4a;
-  --wt-blue: #a8dadc;
-  --wt-blue-hover: #7fc8d6;
+  --wt-cream: #f5f9ff;
+  --wt-cream-2: #eaf2fb;
+  --wt-orange: #f59f28;
+  --wt-orange-hover: #e68914;
+  --wt-blue: #2b90cf;
+  --wt-blue-hover: #1f7fb8;
 
   /* Neutrals */
-  --wt-text: #2f2f2f;
-  --wt-text-2: #6b6b6b;
-  --wt-border: #e5e5e5;
+  --wt-text: #16324a;
+  --wt-text-2: #4b6a87;
+  --wt-border: #bfd2e6;
 
   /* App tokens */
   --wt-bg: var(--wt-cream);
