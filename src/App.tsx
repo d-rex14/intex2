@@ -23,6 +23,7 @@ import {
   SpiritualNeedsPage,
 } from './pages/public/ProgramPages'
 import { SocialPage } from './pages/public/SocialPage'
+import { DonorsContributionsPage } from './pages/portal/DonorsContributionsPage'
 import { SiteUsersPage } from './pages/portal/SiteUsersPage'
 import { YourDonationsPage } from './pages/portal/YourDonationsPage'
 
@@ -338,7 +339,7 @@ export function App() {
           }
         >
           <Route index element={<AdminPlaceholder title="Dashboard" />} />
-          <Route path="donors" element={<AdminPlaceholder title="Donors & Contributions" />} />
+          <Route path="donors" element={<DonorsContributionsPage />} />
           <Route path="caseload" element={<AdminPlaceholder title="Caseload Inventory" />} />
           <Route path="process-recordings" element={<AdminPlaceholder title="Process Recordings" />} />
           <Route path="reports" element={<AdminPlaceholder title="Reports & Analytics" />} />
