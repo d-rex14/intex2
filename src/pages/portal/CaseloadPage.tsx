@@ -1,7 +1,53 @@
 import { useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
+import { isStaffLike } from '../../lib/roles'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
+
+type ResidentMLScore = {
+  resident_id: number
+  reintegration_band: 'Ready' | 'Approaching' | 'Not Ready' | null
+  school_struggle_band: 'High' | 'Medium' | 'Low' | null
+  wellbeing_band: 'High' | 'Medium' | 'Low' | null
+  incident_risk_band: 'High' | 'Medium' | 'Low' | null
+  model_version: string
+  scored_at: string
+}
+
+async function fetchMLScores(): Promise<{ data: ResidentMLScore[] | null; error: { message: string } | null }> {
+  if (!supabase) return { data: null, error: { message: 'Supabase not configured.' } }
+  const { data, error } = await supabase.from('resident_ml_scores').select('*')
+  if (error) return { data: null, error: { message: error.message } }
+  return { data: (data ?? []) as ResidentMLScore[], error: null }
+}
+
+type BandType = 'reintegration' | 'risk' | 'wellbeing'
+
+function RiskChip({ band, type }: { band: string | null; type: BandType }) {
+  if (!band) return <span className="text-[var(--wt-text-2)] text-xs">—</span>
+  const readiness: Record<string, string> = {
+    Ready: 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-accent)] border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]',
+    Approaching: 'bg-[color-mix(in_srgb,var(--wt-text-2)_14%,transparent)] text-[var(--wt-text-2)] border-[color-mix(in_srgb,var(--wt-text-2)_25%,transparent)]',
+    'Not Ready': 'bg-[color-mix(in_srgb,#dc2626_14%,transparent)] text-[#dc2626] border-[color-mix(in_srgb,#dc2626_30%,transparent)]',
+  }
+  const riskHigh: Record<string, string> = {
+    High: 'bg-[color-mix(in_srgb,#dc2626_14%,transparent)] text-[#dc2626] border-[color-mix(in_srgb,#dc2626_30%,transparent)]',
+    Medium: 'bg-[color-mix(in_srgb,var(--wt-text-2)_14%,transparent)] text-[var(--wt-text-2)] border-[color-mix(in_srgb,var(--wt-text-2)_25%,transparent)]',
+    Low: 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-accent)] border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]',
+  }
+  const wellbeing: Record<string, string> = {
+    High: 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-accent)] border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]',
+    Medium: 'bg-[color-mix(in_srgb,var(--wt-text-2)_14%,transparent)] text-[var(--wt-text-2)] border-[color-mix(in_srgb,var(--wt-text-2)_25%,transparent)]',
+    Low: 'bg-[color-mix(in_srgb,#dc2626_14%,transparent)] text-[#dc2626] border-[color-mix(in_srgb,#dc2626_30%,transparent)]',
+  }
+  const map = type === 'reintegration' ? readiness : type === 'wellbeing' ? wellbeing : riskHigh
+  const cls = map[band] ?? 'bg-[var(--wt-border)] text-[var(--wt-text-2)] border-[var(--wt-border)]'
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${cls}`}>
+      {band}
+    </span>
+  )
+}
 
 type Resident = {
   resident_id: number
@@ -190,10 +236,12 @@ async function fetchSafehouses(): Promise<{ data: Safehouse[] | null; error: { m
 function ResidentDetailModal({
   resident,
   safehouseName,
+  mlScore,
   onClose,
 }: {
   resident: Resident
   safehouseName: string
+  mlScore?: ResidentMLScore
   onClose: () => void
 }) {
   const tags = subCategoryTags(resident)
@@ -240,6 +288,30 @@ function ResidentDetailModal({
             <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Sub-categories</div>
             {tags.length === 0 ? <p>—</p> : <p>{tags.join(', ')}</p>}
           </div>
+          {mlScore ? (
+            <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4 md:col-span-2">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-3">Model Insights</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Reintegration</div>
+                  <RiskChip band={mlScore.reintegration_band} type="reintegration" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">School risk</div>
+                  <RiskChip band={mlScore.school_struggle_band} type="risk" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Wellbeing</div>
+                  <RiskChip band={mlScore.wellbeing_band} type="wellbeing" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Incident risk</div>
+                  <RiskChip band={mlScore.incident_risk_band} type="risk" />
+                </div>
+              </div>
+              <p className="mt-3 text-[10px] text-[var(--wt-text-2)]">Model v{mlScore.model_version} · {mlScore.scored_at.slice(0, 10)} · Decision support only</p>
+            </div>
+          ) : null}
           <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
             <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Disability & family profile</div>
             <p><strong>PWD:</strong> {yesNo(resident.is_pwd)} {resident.pwd_type ? `(${resident.pwd_type})` : ''}</p>
@@ -256,7 +328,8 @@ function ResidentDetailModal({
 }
 
 export function CaseloadPage() {
-  useAuth()
+  const { effectiveRoleIds } = useAuth()
+  const staff = isStaffLike(effectiveRoleIds)
   const [statusFilter, setStatusFilter] = useState('all')
   const [safehouseFilter, setSafehouseFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -275,6 +348,14 @@ export function CaseloadPage() {
 
   const safehouseQFn = useMemo(() => () => fetchSafehouses(), [])
   const { data: safehouses } = useSupabaseQuery(safehouseQFn)
+
+  const mlQFn = useMemo(() => () => fetchMLScores(), [])
+  const { data: mlScores } = useSupabaseQuery(mlQFn)
+  const mlByResident = useMemo(() => {
+    const m = new Map<number, ResidentMLScore>()
+    for (const s of mlScores ?? []) m.set(s.resident_id, s)
+    return m
+  }, [mlScores])
 
   const safehouseNameById = useMemo(() => {
     const m = new Map<number, string>()
@@ -494,11 +575,16 @@ export function CaseloadPage() {
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Safehouse</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Social worker</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Status</th>
+                  {staff && <th className="px-4 py-3 font-medium whitespace-nowrap">Reintegration</th>}
+                  {staff && <th className="px-4 py-3 font-medium whitespace-nowrap">School risk</th>}
+                  {staff && <th className="px-4 py-3 font-medium whitespace-nowrap">Wellbeing</th>}
+                  {staff && <th className="px-4 py-3 font-medium whitespace-nowrap">Incident risk</th>}
                   <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {pagedRows.map(r => {
+                  const ml = mlByResident.get(r.resident_id)
                   return (
                     <tr key={r.resident_id} className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]">
                       <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">
@@ -508,6 +594,10 @@ export function CaseloadPage() {
                       <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{safehouseNameById.get(r.safehouse_id ?? -1) ?? '—'}</td>
                       <td className="px-4 py-3 text-[var(--wt-text)]">{r.assigned_social_worker ?? '—'}</td>
                       <td className="px-4 py-3 text-[var(--wt-text)]">{r.case_status ?? '—'}</td>
+                      {staff && <td className="px-4 py-3"><RiskChip band={ml?.reintegration_band ?? null} type="reintegration" /></td>}
+                      {staff && <td className="px-4 py-3"><RiskChip band={ml?.school_struggle_band ?? null} type="risk" /></td>}
+                      {staff && <td className="px-4 py-3"><RiskChip band={ml?.wellbeing_band ?? null} type="wellbeing" /></td>}
+                      {staff && <td className="px-4 py-3"><RiskChip band={ml?.incident_risk_band ?? null} type="risk" /></td>}
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex justify-end gap-2">
                           <button type="button" onClick={() => setSelectedId(r.resident_id)} className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs text-[var(--wt-text)]">Details</button>
@@ -519,7 +609,7 @@ export function CaseloadPage() {
                   )
                 })}
                 {pagedRows.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">No residents found.</td></tr>
+                  <tr><td colSpan={staff ? 9 : 5} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">No residents found.</td></tr>
                 )}
               </tbody>
             </table>
@@ -543,6 +633,7 @@ export function CaseloadPage() {
         <ResidentDetailModal
           resident={selectedResident}
           safehouseName={safehouseNameById.get(selectedResident.safehouse_id ?? -1) ?? '—'}
+          mlScore={staff ? mlByResident.get(selectedResident.resident_id) : undefined}
           onClose={() => setSelectedId(null)}
         />
       )}
