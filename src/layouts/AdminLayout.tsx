@@ -123,7 +123,7 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen bg-[var(--wt-bg)] text-[var(--wt-text)] flex">
       <aside
-        className={`hidden md:flex flex-col border-r border-[var(--wt-border)] bg-[var(--wt-surface)] transition-all duration-300 ${
+        className={`hidden md:flex md:sticky md:top-0 md:h-screen flex-col border-r border-[var(--wt-border)] bg-[var(--wt-surface)] transition-all duration-300 ${
           collapsed ? "w-16" : "w-64"
         }`}
       >
