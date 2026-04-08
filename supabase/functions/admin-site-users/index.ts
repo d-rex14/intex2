@@ -1,7 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.4"
 
-const ADMIN_ROLE_ID = 4
-
 type UserMetadata = Record<string, unknown>
 
 function displayNameFromUser(user: { user_metadata?: UserMetadata | null }): string {
@@ -78,11 +76,25 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
+  // Resolve admin role ID by name so this function works even if role IDs differ by environment.
+  const { data: adminRoleRow, error: adminRoleErr } = await adminClient
+    .from("roles")
+    .select("id")
+    .ilike("name", "admin")
+    .maybeSingle()
+  if (adminRoleErr) {
+    return json(req, { error: `Failed to resolve admin role: ${adminRoleErr.message}` }, 500)
+  }
+  const adminRoleId = adminRoleRow?.id as number | undefined
+  if (!adminRoleId) {
+    return json(req, { error: "Admin role not found in roles table" }, 500)
+  }
+
   const { data: adminRow } = await adminClient
     .from("user_roles")
     .select("role_id")
     .eq("user_id", user.id)
-    .eq("role_id", ADMIN_ROLE_ID)
+    .eq("role_id", adminRoleId)
     .maybeSingle()
 
   if (!adminRow) {

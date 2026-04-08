@@ -52,9 +52,10 @@ async function invokeAdmin<T = unknown>(
       try {
         const j = (await error.context.json()) as { error?: string }
         const msg = j.error ?? error.message
-        return { ok: false, error: msg, forbidden: status === 403 }
+        const withStatus = `[${status}] ${msg}`
+        return { ok: false, error: withStatus, forbidden: status === 403 }
       } catch {
-        return { ok: false, error: error.message, forbidden: status === 403 }
+        return { ok: false, error: `[${status}] ${error.message}`, forbidden: status === 403 }
       }
     }
     const fallback = error instanceof Error ? error.message : String(error)
