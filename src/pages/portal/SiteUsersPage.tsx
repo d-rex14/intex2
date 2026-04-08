@@ -28,9 +28,23 @@ async function invokeAdmin<T = unknown>(
   if (!supabase) {
     return { ok: false, error: 'Supabase is not configured.' }
   }
-  const { data, error } = await supabase.functions.invoke('admin-site-users', {
-    body: { action, ...payload },
-  })
+  let data: unknown
+  let error: unknown
+  try {
+    const res = await supabase.functions.invoke('admin-site-users', {
+      body: { action, ...payload },
+    })
+    data = res.data
+    error = res.error
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return {
+      ok: false,
+      error:
+        `Failed to reach the admin-site-users Edge Function (${msg}). ` +
+        `Check function deployment and ALLOWED_ORIGINS for this app origin.`,
+    }
+  }
 
   if (error) {
     if (error instanceof FunctionsHttpError) {
@@ -43,7 +57,8 @@ async function invokeAdmin<T = unknown>(
         return { ok: false, error: error.message, forbidden: status === 403 }
       }
     }
-    return { ok: false, error: error.message }
+    const fallback = error instanceof Error ? error.message : String(error)
+    return { ok: false, error: fallback }
   }
 
   if (data && typeof data === 'object' && data !== null && 'error' in data) {

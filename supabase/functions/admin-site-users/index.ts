@@ -16,11 +16,15 @@ function corsHeaders(req: Request): Record<string, string> {
     .map((s) => s.trim())
     .filter(Boolean)
   const origin = req.headers.get("Origin") ?? ""
-  const allow = allowed.includes(origin) ? origin : allowed[0] ?? "*"
+  const wildcard = allowed.includes("*")
+  // Echo caller origin when explicitly allowed (or wildcard enabled) so browser CORS preflight succeeds.
+  // Fallback to "*" for non-browser clients / empty Origin header.
+  const allow = origin && (wildcard || allowed.includes(origin)) ? origin : wildcard ? "*" : allowed[0] ?? "*"
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
   }
 }
 
