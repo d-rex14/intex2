@@ -22,7 +22,7 @@ import watchtowerLogo from "../assets/branding/watchtower-logo-transparent.png";
 
 const navItems = [
   { to: '/portal', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/portal/donors', label: 'Donors & Contributions', icon: Users },
+  { to: '/portal/donors', label: 'Donations and Allocations', icon: Users },
   { to: '/portal/caseload', label: 'Caseload Inventory', icon: FolderOpen },
   { to: '/portal/process-recordings', label: 'Process Recordings', icon: FileText },
   { to: '/portal/reports', label: 'Reports & Analytics', icon: BarChart3 },

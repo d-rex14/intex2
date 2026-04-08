@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
 import { campaignOptionsForSelect } from '../../lib/fundraisingCampaigns'
+import { BASE_CURRENCY, FX_TO_PHP, toPHP } from '../../lib/fxRates'
 import { isStaffLike } from '../../lib/roles'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
@@ -30,6 +31,14 @@ export type DonationWithSupporter = {
   supporters: SupporterEmbed
 }
 
+type DonationAllocationRow = {
+  allocation_id?: number
+  donation_id: number | null
+  program_area: string | null
+  amount_allocated: number | null
+  allocation_date?: string | null
+}
+
 type DonationType = 'Monetary' | 'InKind' | 'Time' | 'Skills' | 'SocialMedia'
 
 const DONATION_TYPES: DonationType[] = ['Monetary', 'InKind', 'Time', 'Skills', 'SocialMedia']
@@ -54,6 +63,10 @@ function donorLabel(row: DonationWithSupporter): string {
 
 function donorEmail(row: DonationWithSupporter): string {
   return row.supporters?.email?.trim() || '—'
+}
+
+function formatPHP(n: number): string {
+  return `PHP ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function formatAmount(row: DonationWithSupporter): string {
@@ -137,6 +150,23 @@ async function fetchDonations(): Promise<{
   return { data: rows, error: null }
 }
 
+async function fetchAllocations(): Promise<{
+  data: DonationAllocationRow[] | null
+  error: { message: string } | null
+}> {
+  if (!supabase) {
+    return { data: null, error: { message: 'Supabase is not configured.' } }
+  }
+
+  const { data, error } = await supabase
+    .from('donation_allocations')
+    .select('donation_id, program_area, amount_allocated')
+    .limit(5000)
+
+  if (error) return { data: null, error: { message: error.message } }
+  return { data: (data ?? []) as DonationAllocationRow[], error: null }
+}
+
 const selectClass =
   'rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]'
 
@@ -145,6 +175,129 @@ function DetailField({ label, children }: { label: string; children: ReactNode }
     <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,11rem)_1fr] gap-1 sm:gap-3 py-2 border-b border-[var(--wt-border)]/60 last:border-0">
       <dt className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] shrink-0">{label}</dt>
       <dd className="text-sm text-[var(--wt-text)] break-words min-w-0">{children}</dd>
+    </div>
+  )
+}
+
+const CHART_COLORS = ['#475569', '#c59a54', '#6b7280', '#c2b89c', '#f59e0b', '#94a3b8'] as const
+
+function DonutChart({
+  title,
+  data,
+}: {
+  title: string
+  data: { label: string; value: number; color: string }[]
+}) {
+  const total = data.reduce((sum, d) => sum + d.value, 0)
+  const size = 220
+  const stroke = 18
+  const radius = (size - stroke) / 2
+  const c = 2 * Math.PI * radius
+
+  const segments = useMemo(() => {
+    if (total <= 0) return []
+    let offset = 0
+    return data
+      .filter(d => d.value > 0)
+      .map(d => {
+        const frac = d.value / total
+        const len = frac * c
+        const seg = { ...d, frac, len, offset }
+        offset += len
+        return seg
+      })
+  }, [data, total, c])
+
+  const [hover, setHover] = useState<{
+    label: string
+    value: number
+    frac: number
+    x: number
+    y: number
+  } | null>(null)
+
+  return (
+    <div className="relative">
+      <div className="flex items-center justify-center">
+        <svg
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          role="img"
+          aria-label={title}
+        >
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="color-mix(in_srgb,var(--wt-border)_60%,transparent)"
+            strokeWidth={stroke}
+          />
+          <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+            {segments.map(seg => (
+              <circle
+                key={seg.label}
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                fill="none"
+                stroke={seg.color}
+                strokeWidth={stroke}
+                strokeDasharray={`${seg.len} ${c - seg.len}`}
+                strokeDashoffset={-seg.offset}
+                strokeLinecap="butt"
+                onMouseMove={e => {
+                  const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect()
+                  setHover({
+                    label: seg.label,
+                    value: seg.value,
+                    frac: seg.frac,
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
+                  })
+                }}
+                onMouseLeave={() => setHover(null)}
+              />
+            ))}
+          </g>
+          <text
+            x={size / 2}
+            y={size / 2 - 6}
+            textAnchor="middle"
+            className="fill-[var(--wt-text)]"
+            style={{ fontSize: 18, fontWeight: 700 }}
+          >
+            {total > 0 ? '100%' : '—'}
+          </text>
+          <text
+            x={size / 2}
+            y={size / 2 + 16}
+            textAnchor="middle"
+            className="fill-[var(--wt-text-2)]"
+            style={{ fontSize: 10, letterSpacing: '0.18em' }}
+          >
+            FUNDS
+          </text>
+        </svg>
+      </div>
+
+      {hover && (
+        <div
+          className="pointer-events-none absolute z-10 rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-xs text-[var(--wt-text)] shadow-xl"
+          style={{
+            left: Math.min(hover.x + 12, size - 8),
+            top: Math.max(hover.y - 12, 8),
+            transform: 'translate(-10%, -100%)',
+            maxWidth: 220,
+          }}
+        >
+          <div className="font-semibold">{hover.label}</div>
+          <div className="text-[var(--wt-text-2)] mt-0.5">
+            {formatPHP(hover.value)} • {(hover.frac * 100).toFixed(1)}%
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -167,6 +320,59 @@ export function DonorsContributionsPage() {
   const queryFn = useMemo(() => () => fetchDonations(), [])
 
   const { data: rawRows, loading, error, refetch } = useSupabaseQuery(queryFn)
+
+  const allocationsQueryFn = useMemo(() => () => fetchAllocations(), [])
+  const {
+    data: allocationRows,
+    loading: allocationsLoading,
+    error: allocationsError,
+  } = useSupabaseQuery(allocationsQueryFn)
+
+  const resourcesFunded = useMemo(() => {
+    const rows = allocationRows ?? []
+    const m = new Map<string, number>()
+    for (const r of rows) {
+      const label = (r.program_area ?? '').trim() || 'Uncategorized'
+      const amt = Number(r.amount_allocated ?? 0)
+      if (!Number.isFinite(amt) || amt <= 0) continue
+      m.set(label, (m.get(label) ?? 0) + amt)
+    }
+    const entries = [...m.entries()].sort((a, b) => b[1] - a[1])
+    return entries.map(([label, value], i) => ({
+      label,
+      value,
+      color: CHART_COLORS[i % CHART_COLORS.length],
+    }))
+  }, [allocationRows])
+
+  const topDonors = useMemo(() => {
+    const rows = rawRows ?? []
+    const totals = new Map<string, { donor: string; totalPHP: number; breakdown: Map<string, number>; hasMissingFX: boolean }>()
+
+    for (const r of rows) {
+      if (r.donation_type !== 'Monetary') continue
+      if (r.amount == null) continue
+      const key = r.supporter_id != null ? `supporter:${r.supporter_id}` : `email:${donorEmail(r)}`
+      const donor = donorLabel(r)
+      const cur = (r.currency_code ?? BASE_CURRENCY).trim().toUpperCase() || BASE_CURRENCY
+      const fx = toPHP(Number(r.amount), cur)
+
+      const prev = totals.get(key) ?? { donor, totalPHP: 0, breakdown: new Map<string, number>(), hasMissingFX: false }
+      if (fx.php == null) {
+        prev.hasMissingFX = true
+        totals.set(key, prev)
+        continue
+      }
+      prev.totalPHP += fx.php
+      prev.breakdown.set(cur, (prev.breakdown.get(cur) ?? 0) + Number(r.amount))
+      // Prefer a nicer donor label if we see one later.
+      if (prev.donor === '—' && donor !== '—') prev.donor = donor
+      totals.set(key, prev)
+    }
+
+    const sorted = [...totals.values()].sort((a, b) => b.totalPHP - a.totalPHP)
+    return sorted.slice(0, 3)
+  }, [rawRows])
 
   const filteredRows = useMemo(() => {
     const rows = rawRows ?? []
@@ -251,7 +457,7 @@ export function DonorsContributionsPage() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[var(--wt-text)]">Donors & Contributions</h1>
+          <h1 className="font-display text-2xl font-bold text-[var(--wt-text)]">Donations and Allocations</h1>
           <p className="text-sm text-[var(--wt-text-2)] mt-1 max-w-2xl">
             {donationTypeFilter === 'all' ? (
               <>
@@ -277,6 +483,127 @@ export function DonorsContributionsPage() {
       </div>
 
       {formError && <p className="text-sm text-[#dc2626]">{formError}</p>}
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Top Donors</h2>
+              <p className="text-xs text-[var(--wt-text-2)] mt-1">
+                Top 3 monetary donors by total giving (converted to PHP using static rates).
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)]">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
+                  <th className="px-4 py-3 font-medium">Donor</th>
+                  <th className="px-4 py-3 font-medium text-right">Total (PHP)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topDonors.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="px-4 py-6 text-sm text-[var(--wt-text-2)] text-center">
+                      No monetary donations found yet.
+                    </td>
+                  </tr>
+                ) : (
+                  topDonors.map((d, idx) => {
+                    const breakdown = [...d.breakdown.entries()]
+                      .map(([cur, amt]) => `${cur} ${amt.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+                      .join(' + ')
+                    const tooltip = [
+                      breakdown ? `Breakdown: ${breakdown}` : null,
+                      d.hasMissingFX ? `Some currencies excluded (missing FX rate).` : null,
+                      `FX rates in use: ${Object.keys(FX_TO_PHP).sort().join(', ')}`,
+                    ]
+                      .filter(Boolean)
+                      .join('\n')
+
+                    return (
+                      <tr
+                        key={`${d.donor}-${idx}`}
+                        className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]"
+                      >
+                        <td className="px-4 py-3 text-[var(--wt-text)]">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-[var(--wt-border)] bg-[var(--wt-surface)] text-[10px] text-[var(--wt-text-2)]">
+                              {idx + 1}
+                            </span>
+                            <span className="font-medium">{d.donor}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          <span
+                            className="text-[var(--wt-text)] font-semibold"
+                            title={tooltip || undefined}
+                          >
+                            {formatPHP(d.totalPHP)}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-5">
+          <div>
+            <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Resources Funded</h2>
+            <p className="text-xs text-[var(--wt-text-2)] mt-1">
+              Breakdown of allocated funds by program area.
+            </p>
+          </div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 items-center">
+            <div className="flex justify-center md:justify-start">
+              {allocationsLoading ? (
+                <div className="flex items-center gap-3 text-sm text-[var(--wt-text-2)] py-10">
+                  <div className="w-6 h-6 border-2 border-[var(--wt-accent)] border-t-transparent rounded-full animate-spin" />
+                  Loading…
+                </div>
+              ) : allocationsError ? (
+                <p className="text-sm text-[#dc2626]">{allocationsError}</p>
+              ) : resourcesFunded.length === 0 ? (
+                <p className="text-sm text-[var(--wt-text-2)]">No allocation data found yet.</p>
+              ) : (
+                <DonutChart title="Resources Funded" data={resourcesFunded} />
+              )}
+            </div>
+
+            {!allocationsLoading && !allocationsError && resourcesFunded.length > 0 && (
+              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4">
+                <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Legend</div>
+                <ul className="space-y-2">
+                  {resourcesFunded.map(d => (
+                    <li key={d.label} className="flex items-center gap-2 text-sm">
+                      <span
+                        className="inline-block w-3 h-3 rounded-sm border border-[var(--wt-border)]"
+                        style={{ backgroundColor: d.color }}
+                        title={`${d.label}: ${formatPHP(d.value)}`}
+                      />
+                      <span className="text-[var(--wt-text)] truncate" title={d.label}>
+                        {d.label}
+                      </span>
+                      <span className="ml-auto text-[var(--wt-text-2)] tabular-nums" title={formatPHP(d.value)}>
+                        {formatPHP(d.value)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-xs text-[var(--wt-text-2)]">
+                  Hover a segment for details.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div className="flex flex-col lg:flex-row lg:flex-wrap gap-3 lg:items-center rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] px-4 py-3 text-sm">
         <label className="flex flex-col gap-1 min-w-[10rem]">
@@ -322,6 +649,10 @@ export function DonorsContributionsPage() {
         )}
       </div>
 
+      <div className="pt-2">
+        <h2 className="text-xs uppercase tracking-widest text-[var(--wt-text-2)]">All Donations</h2>
+      </div>
+
       <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16 gap-3 text-[var(--wt-text-2)] text-sm">
@@ -346,8 +677,6 @@ export function DonorsContributionsPage() {
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Type</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Date</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Amount / value</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Recurring</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Channel</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Details</th>
                   {staff && <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Actions</th>}
                 </tr>
@@ -364,8 +693,6 @@ export function DonorsContributionsPage() {
                       {row.donation_date ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{formatAmount(row)}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text)]">{row.is_recurring ? 'Yes' : 'No'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text-2)]">{row.channel_source ?? '—'}</td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
