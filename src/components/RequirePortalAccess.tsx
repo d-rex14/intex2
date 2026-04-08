@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { canAccessPath } from "../lib/roles";
 import { isSupabaseConfigured } from "../lib/supabase";
@@ -17,7 +17,7 @@ function CenteredSpinner() {
  */
 export function RequirePortalAccess() {
   const location = useLocation();
-  const { effectiveRoleIds, rolesLoading, loading } = useAuth();
+  const { effectiveRoleIds, rolesLoading, loading, role } = useAuth();
 
   if (loading) {
     return <CenteredSpinner />;
@@ -32,7 +32,15 @@ export function RequirePortalAccess() {
   }
 
   if (!canAccessPath(effectiveRoleIds, location.pathname)) {
-    return <Navigate to="/portal" replace />;
+    return (
+      <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
+        <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Access restricted</h2>
+        <p className="mt-2 text-sm text-[var(--wt-text-2)]">
+          Your account role ({role}) cannot view this page. The current tab is preserved so you can switch to another
+          section from the sidebar.
+        </p>
+      </div>
+    );
   }
 
   return <Outlet />;
