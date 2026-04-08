@@ -363,8 +363,16 @@ export function CaseloadPage() {
     return m
   }, [safehouses])
 
-  const statuses = useMemo(() => [...new Set((residents ?? []).map(r => r.case_status).filter(Boolean))].sort(), [residents])
-  const categories = useMemo(() => [...new Set((residents ?? []).map(r => r.case_category).filter(Boolean))].sort(), [residents])
+  const statuses = useMemo(
+    () =>
+      [...new Set((residents ?? []).map(r => r.case_status).filter((s): s is string => Boolean(s)))].sort(),
+    [residents],
+  )
+  const categories = useMemo(
+    () =>
+      [...new Set((residents ?? []).map(r => r.case_category).filter((c): c is string => Boolean(c)))].sort(),
+    [residents],
+  )
   const socialWorkers = useMemo(() => {
     const fromData = [...new Set((residents ?? []).map(r => r.assigned_social_worker?.trim()).filter(Boolean) as string[])].sort()
     return fromData.length > 0 ? fromData : Array.from({ length: 20 }, (_, i) => `SW-${String(i + 1).padStart(2, '0')}`)

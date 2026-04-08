@@ -3,22 +3,21 @@ import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
-type RecordingRow = {
-  recording_id: number
+type VisitationRow = {
+  visitation_id: number
   resident_id: number | null
-  session_date: string | null
+  visit_date: string | null
   social_worker: string | null
-  session_type: string | null
-  session_duration_minutes: number | null
-  emotional_state_observed: string | null
-  emotional_state_end: string | null
-  session_narrative: string | null
-  interventions_applied: string | null
-  follow_up_actions: string | null
-  progress_noted: boolean | null
-  concerns_flagged: boolean | null
-  referral_made: boolean | null
-  notes_restricted: string | null
+  visit_type: string | null
+  location_visited: string | null
+  family_members_present: string | null
+  purpose: string | null
+  observations: string | null
+  family_cooperation_level: string | null
+  safety_concerns_noted: boolean | null
+  follow_up_needed: boolean | null
+  follow_up_notes: string | null
+  visit_outcome: string | null
   residents?: {
     first_name?: string | null
     last_name?: string | null
@@ -31,14 +30,12 @@ type ResidentOption = {
   last_name: string | null
 }
 
-function embedResident(
-  r: RecordingRow['residents'],
-): { first_name?: string | null; last_name?: string | null } | null {
+function embedResident(r: VisitationRow['residents']): { first_name?: string | null; last_name?: string | null } | null {
   if (r == null) return null
   return Array.isArray(r) ? (r[0] ?? null) : r
 }
 
-function residentLabel(row: RecordingRow): string {
+function residentLabel(row: VisitationRow): string {
   const r = embedResident(row.residents)
   const parts = [r?.first_name, r?.last_name].filter(Boolean).join(' ').trim()
   if (parts) return parts
@@ -66,36 +63,33 @@ const selectClass =
 const inputClass =
   'w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]'
 
-async function fetchRecordings(): Promise<{ data: RecordingRow[] | null; error: { message: string } | null }> {
+async function fetchVisitations(): Promise<{ data: VisitationRow[] | null; error: { message: string } | null }> {
   if (!supabase) return { data: null, error: { message: 'Supabase is not configured.' } }
-
   const { data, error } = await supabase
-    .from('process_recordings')
+    .from('home_visitations')
     .select(
       `
-        recording_id,
+        visitation_id,
         resident_id,
-        session_date,
+        visit_date,
         social_worker,
-        session_type,
-        session_duration_minutes,
-        emotional_state_observed,
-        emotional_state_end,
-        session_narrative,
-        interventions_applied,
-        follow_up_actions,
-        progress_noted,
-        concerns_flagged,
-        referral_made,
-        notes_restricted,
+        visit_type,
+        location_visited,
+        family_members_present,
+        purpose,
+        observations,
+        family_cooperation_level,
+        safety_concerns_noted,
+        follow_up_needed,
+        follow_up_notes,
+        visit_outcome,
         residents ( first_name, last_name )
       `,
     )
-    .order('session_date', { ascending: false })
+    .order('visit_date', { ascending: false })
     .limit(1000)
-
   if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as RecordingRow[], error: null }
+  return { data: (data ?? []) as VisitationRow[], error: null }
 }
 
 async function fetchResidentOptions(): Promise<{ data: ResidentOption[] | null; error: { message: string } | null }> {
@@ -109,38 +103,38 @@ async function fetchResidentOptions(): Promise<{ data: ResidentOption[] | null; 
   return { data: (data ?? []) as ResidentOption[], error: null }
 }
 
-type RecordingDraft = Pick<
-  RecordingRow,
+type VisitationDraft = Pick<
+  VisitationRow,
   | 'resident_id'
-  | 'session_date'
+  | 'visit_date'
   | 'social_worker'
-  | 'session_type'
-  | 'session_duration_minutes'
-  | 'emotional_state_observed'
-  | 'emotional_state_end'
-  | 'session_narrative'
-  | 'interventions_applied'
-  | 'follow_up_actions'
-  | 'progress_noted'
-  | 'concerns_flagged'
-  | 'referral_made'
+  | 'visit_type'
+  | 'location_visited'
+  | 'family_members_present'
+  | 'purpose'
+  | 'observations'
+  | 'family_cooperation_level'
+  | 'safety_concerns_noted'
+  | 'follow_up_needed'
+  | 'follow_up_notes'
+  | 'visit_outcome'
 >
 
-function emptyDraft(): RecordingDraft {
+function emptyDraft(): VisitationDraft {
   return {
     resident_id: null,
-    session_date: new Date().toISOString().slice(0, 10),
+    visit_date: new Date().toISOString().slice(0, 10),
     social_worker: '',
-    session_type: 'Individual',
-    session_duration_minutes: null,
-    emotional_state_observed: null,
-    emotional_state_end: null,
-    session_narrative: '',
-    interventions_applied: '',
-    follow_up_actions: '',
-    progress_noted: false,
-    concerns_flagged: false,
-    referral_made: false,
+    visit_type: 'Routine Follow-Up',
+    location_visited: '',
+    family_members_present: '',
+    purpose: '',
+    observations: '',
+    family_cooperation_level: 'Neutral',
+    safety_concerns_noted: false,
+    follow_up_needed: false,
+    follow_up_notes: '',
+    visit_outcome: 'Inconclusive',
   }
 }
 
@@ -175,28 +169,30 @@ function ModalShell({
   )
 }
 
-export function ProcessRecordingsPage() {
-  useAuth() // ensures auth context is initialized; role-gating handled by RequirePortalAccess
+export function VisitationsPage() {
+  useAuth()
 
   const [search, setSearch] = useState('')
   const [residentFilter, setResidentFilter] = useState<string>('all')
   const [workerFilter, setWorkerFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [outcomeFilter, setOutcomeFilter] = useState<string>('all')
+  const [safetyOnly, setSafetyOnly] = useState(false)
   const [fromDate, setFromDate] = useState<string>('')
   const [toDate, setToDate] = useState<string>('')
   const [pageSize, setPageSize] = useState<number>(25)
   const [page, setPage] = useState(1)
 
-  const [detailRow, setDetailRow] = useState<RecordingRow | null>(null)
+  const [detailRow, setDetailRow] = useState<VisitationRow | null>(null)
   const [creating, setCreating] = useState(false)
-  const [editing, setEditing] = useState<RecordingRow | null>(null)
-  const [draft, setDraft] = useState<RecordingDraft>(emptyDraft())
-  const [deleting, setDeleting] = useState<RecordingRow | null>(null)
+  const [editing, setEditing] = useState<VisitationRow | null>(null)
+  const [draft, setDraft] = useState<VisitationDraft>(emptyDraft())
+  const [deleting, setDeleting] = useState<VisitationRow | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const recordingsQ = useMemo(() => () => fetchRecordings(), [])
-  const { data: rawRows, loading, error, refetch } = useSupabaseQuery<RecordingRow[]>(recordingsQ)
+  const visitQ = useMemo(() => () => fetchVisitations(), [])
+  const { data: rawRows, loading, error, refetch } = useSupabaseQuery<VisitationRow[]>(visitQ)
 
   const residentsQ = useMemo(() => () => fetchResidentOptions(), [])
   const { data: residentOptions } = useSupabaseQuery<ResidentOption[]>(residentsQ)
@@ -206,6 +202,24 @@ export function ProcessRecordingsPage() {
     for (const r of rawRows ?? []) {
       const w = (r.social_worker ?? '').trim()
       if (w) s.add(w)
+    }
+    return [...s].sort((a, b) => a.localeCompare(b))
+  }, [rawRows])
+
+  const visitTypes = useMemo(() => {
+    const s = new Set<string>()
+    for (const r of rawRows ?? []) {
+      const t = (r.visit_type ?? '').trim()
+      if (t) s.add(t)
+    }
+    return [...s].sort((a, b) => a.localeCompare(b))
+  }, [rawRows])
+
+  const outcomes = useMemo(() => {
+    const s = new Set<string>()
+    for (const r of rawRows ?? []) {
+      const t = (r.visit_outcome ?? '').trim()
+      if (t) s.add(t)
     }
     return [...s].sort((a, b) => a.localeCompare(b))
   }, [rawRows])
@@ -221,10 +235,12 @@ export function ProcessRecordingsPage() {
     return rows.filter((r) => {
       if (residentId != null && r.resident_id !== residentId) return false
       if (workerFilter !== 'all' && (r.social_worker ?? '') !== workerFilter) return false
-      if (typeFilter !== 'all' && (r.session_type ?? '') !== typeFilter) return false
+      if (typeFilter !== 'all' && (r.visit_type ?? '') !== typeFilter) return false
+      if (outcomeFilter !== 'all' && (r.visit_outcome ?? '') !== outcomeFilter) return false
+      if (safetyOnly && !r.safety_concerns_noted) return false
 
       if (fromT != null || toT != null) {
-        const t = parseISODateToUTC(r.session_date)
+        const t = parseISODateToUTC(r.visit_date)
         if (t == null) return false
         if (fromT != null && t < fromT) return false
         if (toT != null && t > toT) return false
@@ -232,14 +248,26 @@ export function ProcessRecordingsPage() {
 
       if (q) {
         const name = residentLabel(r).toLowerCase()
-        const id = String(r.recording_id)
+        const id = String(r.visitation_id)
         const sw = (r.social_worker ?? '').toLowerCase()
-        const narr = (r.session_narrative ?? '').toLowerCase()
-        if (!name.includes(q) && !id.includes(q) && !sw.includes(q) && !narr.includes(q)) return false
+        const obs = (r.observations ?? '').toLowerCase()
+        const purpose = (r.purpose ?? '').toLowerCase()
+        if (!name.includes(q) && !id.includes(q) && !sw.includes(q) && !obs.includes(q) && !purpose.includes(q)) return false
       }
+
       return true
     })
-  }, [rawRows, search, residentFilter, workerFilter, typeFilter, fromDate, toDate])
+  }, [
+    rawRows,
+    search,
+    residentFilter,
+    workerFilter,
+    typeFilter,
+    outcomeFilter,
+    safetyOnly,
+    fromDate,
+    toDate,
+  ])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const pagedRows = useMemo(() => {
@@ -258,23 +286,23 @@ export function ProcessRecordingsPage() {
     setCreating(true)
   }
 
-  const openEdit = (row: RecordingRow) => {
+  const openEdit = (row: VisitationRow) => {
     setFormError(null)
     setEditing(row)
     setDraft({
       resident_id: row.resident_id ?? null,
-      session_date: row.session_date?.slice(0, 10) ?? '',
+      visit_date: row.visit_date?.slice(0, 10) ?? '',
       social_worker: row.social_worker ?? '',
-      session_type: row.session_type ?? '',
-      session_duration_minutes: row.session_duration_minutes ?? null,
-      emotional_state_observed: row.emotional_state_observed ?? null,
-      emotional_state_end: row.emotional_state_end ?? null,
-      session_narrative: row.session_narrative ?? '',
-      interventions_applied: row.interventions_applied ?? '',
-      follow_up_actions: row.follow_up_actions ?? '',
-      progress_noted: Boolean(row.progress_noted),
-      concerns_flagged: Boolean(row.concerns_flagged),
-      referral_made: Boolean(row.referral_made),
+      visit_type: row.visit_type ?? '',
+      location_visited: row.location_visited ?? '',
+      family_members_present: row.family_members_present ?? '',
+      purpose: row.purpose ?? '',
+      observations: row.observations ?? '',
+      family_cooperation_level: row.family_cooperation_level ?? '',
+      safety_concerns_noted: Boolean(row.safety_concerns_noted),
+      follow_up_needed: Boolean(row.follow_up_needed),
+      follow_up_notes: row.follow_up_notes ?? '',
+      visit_outcome: row.visit_outcome ?? '',
     })
   }
 
@@ -285,27 +313,27 @@ export function ProcessRecordingsPage() {
 
     const payload = {
       resident_id: draft.resident_id,
-      session_date: draft.session_date || null,
+      visit_date: draft.visit_date || null,
       social_worker: draft.social_worker?.trim() || null,
-      session_type: draft.session_type?.trim() || null,
-      session_duration_minutes: draft.session_duration_minutes,
-      emotional_state_observed: draft.emotional_state_observed?.trim() || null,
-      emotional_state_end: draft.emotional_state_end?.trim() || null,
-      session_narrative: draft.session_narrative?.trim() || null,
-      interventions_applied: draft.interventions_applied?.trim() || null,
-      follow_up_actions: draft.follow_up_actions?.trim() || null,
-      progress_noted: Boolean(draft.progress_noted),
-      concerns_flagged: Boolean(draft.concerns_flagged),
-      referral_made: Boolean(draft.referral_made),
+      visit_type: draft.visit_type?.trim() || null,
+      location_visited: draft.location_visited?.trim() || null,
+      family_members_present: draft.family_members_present?.trim() || null,
+      purpose: draft.purpose?.trim() || null,
+      observations: draft.observations?.trim() || null,
+      family_cooperation_level: draft.family_cooperation_level?.trim() || null,
+      safety_concerns_noted: Boolean(draft.safety_concerns_noted),
+      follow_up_needed: Boolean(draft.follow_up_needed),
+      follow_up_notes: draft.follow_up_notes?.trim() || null,
+      visit_outcome: draft.visit_outcome?.trim() || null,
     }
 
     try {
       if (editing) {
-        const { error: upErr } = await supabase.from('process_recordings').update(payload).eq('recording_id', editing.recording_id)
+        const { error: upErr } = await supabase.from('home_visitations').update(payload).eq('visitation_id', editing.visitation_id)
         if (upErr) throw upErr
         setEditing(null)
       } else {
-        const { error: insErr } = await supabase.from('process_recordings').insert(payload)
+        const { error: insErr } = await supabase.from('home_visitations').insert(payload)
         if (insErr) throw insErr
         setCreating(false)
       }
@@ -323,7 +351,7 @@ export function ProcessRecordingsPage() {
     setBusy(true)
     setFormError(null)
     try {
-      const { error: delErr } = await supabase.from('process_recordings').delete().eq('recording_id', deleting.recording_id)
+      const { error: delErr } = await supabase.from('home_visitations').delete().eq('visitation_id', deleting.visitation_id)
       if (delErr) throw delErr
       setDeleting(null)
       refetch()
@@ -339,7 +367,7 @@ export function ProcessRecordingsPage() {
     return (
       <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
         <p className="text-sm text-[var(--wt-text-2)]">
-          Set <code className="text-xs">VITE_SUPABASE_URL</code> and <code className="text-xs">VITE_SUPABASE_ANON_KEY</code> to load process recordings.
+          Set <code className="text-xs">VITE_SUPABASE_URL</code> and <code className="text-xs">VITE_SUPABASE_ANON_KEY</code> to load home visitation data.
         </p>
       </div>
     )
@@ -352,9 +380,9 @@ export function ProcessRecordingsPage() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[var(--wt-text)]">Process Recordings</h1>
+          <h1 className="font-display text-2xl font-bold text-[var(--wt-text)]">Home Visitations</h1>
           <p className="text-sm text-[var(--wt-text-2)] mt-1">
-            Dated counseling session notes, searchable and filterable by resident and social worker.
+            Field and home visits for family assessment, reintegration planning, and follow-up.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -370,7 +398,7 @@ export function ProcessRecordingsPage() {
             onClick={openCreate}
             className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
           >
-            New recording
+            New visitation
           </button>
         </div>
       </div>
@@ -397,7 +425,7 @@ export function ProcessRecordingsPage() {
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Resident, worker, narrative, ID…"
+            placeholder="Resident, worker, purpose, observations…"
             className={selectClass}
           />
         </label>
@@ -443,8 +471,8 @@ export function ProcessRecordingsPage() {
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 min-w-[10rem]">
-          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Session type</span>
+        <label className="flex flex-col gap-1 min-w-[12rem]">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Visit type</span>
           <select
             className={selectClass}
             value={typeFilter}
@@ -454,9 +482,44 @@ export function ProcessRecordingsPage() {
             }}
           >
             <option value="all">All types</option>
-            <option value="Individual">Individual</option>
-            <option value="Group">Group</option>
+            {visitTypes.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
           </select>
+        </label>
+
+        <label className="flex flex-col gap-1 min-w-[12rem]">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Outcome</span>
+          <select
+            className={selectClass}
+            value={outcomeFilter}
+            onChange={(e) => {
+              setOutcomeFilter(e.target.value)
+              setPage(1)
+            }}
+          >
+            <option value="all">All outcomes</option>
+            {outcomes.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-end gap-2 pb-1">
+          <input
+            type="checkbox"
+            checked={safetyOnly}
+            onChange={(e) => {
+              setSafetyOnly(e.target.checked)
+              setPage(1)
+            }}
+            className="rounded border-[var(--wt-border)] mb-2"
+          />
+          <span className="text-sm text-[var(--wt-text)]">Safety concerns only</span>
         </label>
 
         <label className="flex flex-col gap-1 min-w-[10rem]">
@@ -514,7 +577,7 @@ export function ProcessRecordingsPage() {
         {loading ? (
           <div className="flex items-center justify-center py-16 gap-3 text-[var(--wt-text-2)] text-sm">
             <div className="w-6 h-6 border-2 border-[var(--wt-accent)] border-t-transparent rounded-full animate-spin" />
-            Loading recordings…
+            Loading visitations…
           </div>
         ) : error ? (
           <div className="p-6">
@@ -529,10 +592,9 @@ export function ProcessRecordingsPage() {
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Resident</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Worker</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Type</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Start</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">End</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Progress</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Concern</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap">Cooperation</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap">Safety</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap">Outcome</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Details</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Actions</th>
                 </tr>
@@ -540,17 +602,16 @@ export function ProcessRecordingsPage() {
               <tbody>
                 {pagedRows.map((r) => (
                   <tr
-                    key={r.recording_id}
+                    key={r.visitation_id}
                     className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]"
                   >
-                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{formatFriendlyDate(r.session_date)}</td>
+                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{formatFriendlyDate(r.visit_date)}</td>
                     <td className="px-4 py-3 text-[var(--wt-text)] font-medium whitespace-nowrap">{residentLabel(r)}</td>
                     <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{r.social_worker ?? '—'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.session_type ?? '—'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{r.emotional_state_observed ?? '—'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{r.emotional_state_end ?? '—'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.progress_noted ? 'Yes' : 'No'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.concerns_flagged ? 'Yes' : 'No'}</td>
+                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.visit_type ?? '—'}</td>
+                    <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{r.family_cooperation_level ?? '—'}</td>
+                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.safety_concerns_noted ? 'Yes' : 'No'}</td>
+                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.visit_outcome ?? '—'}</td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
@@ -582,8 +643,8 @@ export function ProcessRecordingsPage() {
                 ))}
                 {pagedRows.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">
-                      No recordings found.
+                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">
+                      No visitations found.
                     </td>
                   </tr>
                 )}
@@ -637,21 +698,21 @@ export function ProcessRecordingsPage() {
 
       {detailRow && (
         <ModalShell
-          title={`Recording #${detailRow.recording_id}`}
-          subtitle={`${formatFriendlyDate(detailRow.session_date)} • ${residentLabel(detailRow)} • ${detailRow.social_worker ?? '—'}`}
+          title={`Visitation #${detailRow.visitation_id}`}
+          subtitle={`${formatFriendlyDate(detailRow.visit_date)} • ${residentLabel(detailRow)} • ${detailRow.social_worker ?? '—'}`}
           onClose={() => setDetailRow(null)}
         >
           <div className="space-y-4">
             <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
-              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-3">Session overview</div>
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-3">Visit summary</div>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 {[
-                  ['Type', detailRow.session_type ?? '—'],
-                  ['Duration (min)', detailRow.session_duration_minutes != null ? String(detailRow.session_duration_minutes) : '—'],
-                  ['Start emotion', detailRow.emotional_state_observed ?? '—'],
-                  ['End emotion', detailRow.emotional_state_end ?? '—'],
-                  ['Progress noted', detailRow.progress_noted ? 'Yes' : 'No'],
-                  ['Concerns flagged', detailRow.concerns_flagged ? 'Yes' : 'No'],
+                  ['Type', detailRow.visit_type ?? '—'],
+                  ['Outcome', detailRow.visit_outcome ?? '—'],
+                  ['Cooperation', detailRow.family_cooperation_level ?? '—'],
+                  ['Safety concerns', detailRow.safety_concerns_noted ? 'Yes' : 'No'],
+                  ['Follow-up needed', detailRow.follow_up_needed ? 'Yes' : 'No'],
+                  ['Location', detailRow.location_visited?.trim() || '—'],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <dt className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">{label}</dt>
@@ -662,19 +723,18 @@ export function ProcessRecordingsPage() {
             </div>
 
             <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
-              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Narrative</div>
-              <p className="text-sm text-[var(--wt-text)] whitespace-pre-wrap">{detailRow.session_narrative?.trim() || '—'}</p>
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Purpose</div>
+              <p className="text-sm text-[var(--wt-text)] whitespace-pre-wrap">{detailRow.purpose?.trim() || '—'}</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
-                <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Interventions</div>
-                <p className="text-sm text-[var(--wt-text)] whitespace-pre-wrap">{detailRow.interventions_applied?.trim() || '—'}</p>
-              </div>
-              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
-                <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Follow-up actions</div>
-                <p className="text-sm text-[var(--wt-text)] whitespace-pre-wrap">{detailRow.follow_up_actions?.trim() || '—'}</p>
-              </div>
+            <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Observations</div>
+              <p className="text-sm text-[var(--wt-text)] whitespace-pre-wrap">{detailRow.observations?.trim() || '—'}</p>
+            </div>
+
+            <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Follow-up notes</div>
+              <p className="text-sm text-[var(--wt-text)] whitespace-pre-wrap">{detailRow.follow_up_notes?.trim() || '—'}</p>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -692,8 +752,8 @@ export function ProcessRecordingsPage() {
 
       {(creating || editing) && (
         <ModalShell
-          title={editing ? `Edit recording #${editing.recording_id}` : 'New process recording'}
-          subtitle="Create or update a counseling session note."
+          title={editing ? `Edit visitation #${editing.visitation_id}` : 'New visitation'}
+          subtitle="Create or update a home/field visit record."
           onClose={() => {
             setCreating(false)
             setEditing(null)
@@ -702,11 +762,11 @@ export function ProcessRecordingsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
-                Session date
+                Visit date
                 <input
                   type="date"
-                  value={draft.session_date ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, session_date: e.target.value }))}
+                  value={draft.visit_date ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, visit_date: e.target.value }))}
                   className={inputClass}
                 />
               </label>
@@ -732,111 +792,83 @@ export function ProcessRecordingsPage() {
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
                 Social worker
+                <input value={draft.social_worker ?? ''} onChange={(e) => setDraft((d) => ({ ...d, social_worker: e.target.value }))} className={inputClass} />
+              </label>
+
+              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
+                Visit type
+                <input value={draft.visit_type ?? ''} onChange={(e) => setDraft((d) => ({ ...d, visit_type: e.target.value }))} className={inputClass} />
+              </label>
+
+              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
+                Cooperation level
                 <input
-                  value={draft.social_worker ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, social_worker: e.target.value }))}
+                  value={draft.family_cooperation_level ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, family_cooperation_level: e.target.value }))}
                   className={inputClass}
                 />
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
-                Session type
-                <select
-                  value={draft.session_type ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, session_type: e.target.value }))}
-                  className={inputClass}
-                >
-                  <option value="">—</option>
-                  <option value="Individual">Individual</option>
-                  <option value="Group">Group</option>
-                </select>
-              </label>
-
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
-                Duration (minutes)
-                <input
-                  type="number"
-                  min={0}
-                  value={draft.session_duration_minutes ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, session_duration_minutes: e.target.value === '' ? null : Number(e.target.value) }))}
-                  className={inputClass}
-                />
-              </label>
-
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
-                Start emotion
-                <input
-                  value={draft.emotional_state_observed ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, emotional_state_observed: e.target.value }))}
-                  className={inputClass}
-                />
-              </label>
-
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
-                End emotion
-                <input
-                  value={draft.emotional_state_end ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, emotional_state_end: e.target.value }))}
-                  className={inputClass}
-                />
-              </label>
-
-              <label className="flex items-center gap-2 text-sm text-[var(--wt-text)] col-span-1 md:col-span-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(draft.progress_noted)}
-                  onChange={(e) => setDraft((d) => ({ ...d, progress_noted: e.target.checked }))}
-                  className="rounded border-[var(--wt-border)]"
-                />
-                Progress noted
-              </label>
-
-              <label className="flex items-center gap-2 text-sm text-[var(--wt-text)] col-span-1 md:col-span-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(draft.concerns_flagged)}
-                  onChange={(e) => setDraft((d) => ({ ...d, concerns_flagged: e.target.checked }))}
-                  className="rounded border-[var(--wt-border)]"
-                />
-                Concerns flagged
-              </label>
-
-              <label className="flex items-center gap-2 text-sm text-[var(--wt-text)] col-span-1 md:col-span-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(draft.referral_made)}
-                  onChange={(e) => setDraft((d) => ({ ...d, referral_made: e.target.checked }))}
-                  className="rounded border-[var(--wt-border)]"
-                />
-                Referral made
+                Outcome
+                <input value={draft.visit_outcome ?? ''} onChange={(e) => setDraft((d) => ({ ...d, visit_outcome: e.target.value }))} className={inputClass} />
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
-                Narrative
+                Location visited
+                <input value={draft.location_visited ?? ''} onChange={(e) => setDraft((d) => ({ ...d, location_visited: e.target.value }))} className={inputClass} />
+              </label>
+
+              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
+                Family members present
+                <input
+                  value={draft.family_members_present ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, family_members_present: e.target.value }))}
+                  className={inputClass}
+                />
+              </label>
+
+              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
+                Purpose
+                <textarea rows={2} value={draft.purpose ?? ''} onChange={(e) => setDraft((d) => ({ ...d, purpose: e.target.value }))} className={inputClass} />
+              </label>
+
+              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
+                Observations
                 <textarea
                   rows={4}
-                  value={draft.session_narrative ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, session_narrative: e.target.value }))}
+                  value={draft.observations ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, observations: e.target.value }))}
                   className={inputClass}
                 />
               </label>
 
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
-                Interventions applied
-                <textarea
-                  rows={3}
-                  value={draft.interventions_applied ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, interventions_applied: e.target.value }))}
-                  className={inputClass}
+              <label className="flex items-center gap-2 text-sm text-[var(--wt-text)] col-span-1 md:col-span-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Boolean(draft.safety_concerns_noted)}
+                  onChange={(e) => setDraft((d) => ({ ...d, safety_concerns_noted: e.target.checked }))}
+                  className="rounded border-[var(--wt-border)]"
                 />
+                Safety concerns noted
+              </label>
+
+              <label className="flex items-center gap-2 text-sm text-[var(--wt-text)] col-span-1 md:col-span-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Boolean(draft.follow_up_needed)}
+                  onChange={(e) => setDraft((d) => ({ ...d, follow_up_needed: e.target.checked }))}
+                  className="rounded border-[var(--wt-border)]"
+                />
+                Follow-up needed
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
-                Follow-up actions
+                Follow-up notes
                 <textarea
-                  rows={3}
-                  value={draft.follow_up_actions ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, follow_up_actions: e.target.value }))}
+                  rows={2}
+                  value={draft.follow_up_notes ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, follow_up_notes: e.target.value }))}
                   className={inputClass}
                 />
               </label>
@@ -868,14 +900,12 @@ export function ProcessRecordingsPage() {
 
       {deleting && (
         <ModalShell
-          title="Delete process recording?"
-          subtitle={`This will permanently delete recording #${deleting.recording_id}.`}
+          title="Delete visitation?"
+          subtitle={`This will permanently delete visitation #${deleting.visitation_id}.`}
           onClose={() => setDeleting(null)}
         >
           <div className="space-y-4">
-            <p className="text-sm text-[var(--wt-text-2)]">
-              This action cannot be undone. Please confirm you want to delete this record.
-            </p>
+            <p className="text-sm text-[var(--wt-text-2)]">This action cannot be undone. Please confirm deletion.</p>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
