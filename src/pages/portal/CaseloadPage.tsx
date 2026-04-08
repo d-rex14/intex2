@@ -75,6 +75,15 @@ const selectClass =
   'rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]'
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
+const CASE_STATUS_OPTIONS = ['Active', 'On Hold', 'Closed', 'Transferred'] as const
+const CASE_CATEGORY_OPTIONS = ['Neglected', 'Surrendered', 'Trafficked', 'Physical Abuse', 'Sexual Abuse', 'At Risk'] as const
+const SEX_OPTIONS = ['F', 'M'] as const
+const REFERRAL_SOURCE_OPTIONS = ['NGO', 'Government Agency', 'Court Order', 'Self-Referral', 'Partner Referral', 'School', 'Community', 'Other'] as const
+const REINTEGRATION_TYPE_OPTIONS = ['Family Reunification', 'Foster Care', 'Independent Living', 'None'] as const
+const REINTEGRATION_STATUS_OPTIONS = ['In Progress', 'Completed', 'On Hold'] as const
+const RISK_LEVEL_OPTIONS = ['Low', 'Medium', 'High', 'Critical'] as const
+const PWD_TYPE_OPTIONS = ['Physical', 'Intellectual', 'Hearing', 'Visual', 'Speech', 'Psychosocial', 'Other'] as const
+const SPECIAL_NEEDS_OPTIONS = ['Speech Impairment', 'Learning Disability', 'Autism', 'ADHD', 'Developmental Delay', 'Behavioral Support', 'Other'] as const
 
 function formatDate(d: string | null | undefined): string {
   const s = (d ?? '').slice(0, 10)
@@ -275,6 +284,10 @@ export function CaseloadPage() {
 
   const statuses = useMemo(() => [...new Set((residents ?? []).map(r => r.case_status).filter(Boolean))].sort(), [residents])
   const categories = useMemo(() => [...new Set((residents ?? []).map(r => r.case_category).filter(Boolean))].sort(), [residents])
+  const socialWorkers = useMemo(() => {
+    const fromData = [...new Set((residents ?? []).map(r => r.assigned_social_worker?.trim()).filter(Boolean) as string[])].sort()
+    return fromData.length > 0 ? fromData : Array.from({ length: 20 }, (_, i) => `SW-${String(i + 1).padStart(2, '0')}`)
+  }, [residents])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -358,9 +371,9 @@ export function CaseloadPage() {
       sub_cat_orphaned: draft.sub_cat_orphaned,
       sub_cat_at_risk: draft.sub_cat_at_risk,
       is_pwd: draft.is_pwd,
-      pwd_type: draft.pwd_type.trim() || null,
+      pwd_type: draft.is_pwd ? (draft.pwd_type.trim() || null) : null,
       has_special_needs: draft.has_special_needs,
-      special_needs_diagnosis: draft.special_needs_diagnosis.trim() || null,
+      special_needs_diagnosis: draft.has_special_needs ? (draft.special_needs_diagnosis.trim() || null) : null,
       family_is_4ps: draft.family_is_4ps,
       family_solo_parent: draft.family_solo_parent,
       family_indigenous: draft.family_indigenous,
@@ -368,7 +381,10 @@ export function CaseloadPage() {
     }
     let dbError: string | null = null
     if (editingId == null) {
-      const { error } = await supabase.from('residents').insert(payload)
+      const { error } = await supabase.from('residents').insert({
+        ...payload,
+        initial_risk_level: payload.current_risk_level,
+      })
       dbError = error?.message ?? null
     } else {
       const { error } = await supabase.from('residents').update(payload).eq('resident_id', editingId)
@@ -380,6 +396,16 @@ export function CaseloadPage() {
       refetch()
     }
     setSaving(false)
+  }
+
+  const removeResident = async (residentId: number) => {
+    if (!supabase) return
+    const ok = window.confirm(`Remove resident #${residentId}? This cannot be undone.`)
+    if (!ok) return
+    setFormError(null)
+    const { error: delErr } = await supabase.from('residents').delete().eq('resident_id', residentId)
+    if (delErr) setFormError(delErr.message)
+    else refetch()
   }
 
   if (!isSupabaseConfigured) {
@@ -447,6 +473,9 @@ export function CaseloadPage() {
           </select>
         </label>
       </div>
+      {formError && (
+        <p className="text-sm text-[#dc2626]">{formError}</p>
+      )}
 
       <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] overflow-hidden">
         {loading ? (
@@ -463,26 +492,13 @@ export function CaseloadPage() {
                 <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Resident</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Safehouse</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Status</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Category</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Sub-categories</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">PWD / Special needs</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Family profile</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Admission</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Social worker</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Reintegration</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap">Status</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {pagedRows.map(r => {
-                  const tags = subCategoryTags(r)
-                  const fam = [
-                    r.family_is_4ps ? '4Ps' : null,
-                    r.family_solo_parent ? 'Solo parent' : null,
-                    r.family_indigenous ? 'Indigenous' : null,
-                    r.family_informal_settler ? 'Informal settler' : null,
-                  ].filter(Boolean).join(', ')
                   return (
                     <tr key={r.resident_id} className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]">
                       <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">
@@ -490,29 +506,20 @@ export function CaseloadPage() {
                         <div className="text-xs text-[var(--wt-text-2)]">{r.internal_code ?? r.case_control_no ?? 'No code'}</div>
                       </td>
                       <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{safehouseNameById.get(r.safehouse_id ?? -1) ?? '—'}</td>
-                      <td className="px-4 py-3 text-[var(--wt-text)]">{r.case_status ?? '—'}</td>
-                      <td className="px-4 py-3 text-[var(--wt-text)]">{r.case_category ?? '—'}</td>
-                      <td className="px-4 py-3 text-[var(--wt-text-2)]">{tags.length ? tags.join(', ') : '—'}</td>
-                      <td className="px-4 py-3 text-[var(--wt-text-2)]">
-                        {r.is_pwd ? `PWD${r.pwd_type ? ` (${r.pwd_type})` : ''}` : 'No PWD'}
-                        <br />
-                        {r.has_special_needs ? `Special needs${r.special_needs_diagnosis ? ` (${r.special_needs_diagnosis})` : ''}` : 'No special needs'}
-                      </td>
-                      <td className="px-4 py-3 text-[var(--wt-text-2)]">{fam || '—'}</td>
-                      <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{formatDate(r.date_of_admission)}</td>
                       <td className="px-4 py-3 text-[var(--wt-text)]">{r.assigned_social_worker ?? '—'}</td>
-                      <td className="px-4 py-3 text-[var(--wt-text-2)]">{r.reintegration_status ?? '—'}</td>
+                      <td className="px-4 py-3 text-[var(--wt-text)]">{r.case_status ?? '—'}</td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex justify-end gap-2">
                           <button type="button" onClick={() => setSelectedId(r.resident_id)} className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs text-[var(--wt-text)]">Details</button>
                           <button type="button" onClick={() => openEdit(r)} className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs text-[var(--wt-accent)]">Edit</button>
+                          <button type="button" onClick={() => void removeResident(r.resident_id)} className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs text-[#dc2626]">Remove</button>
                         </div>
                       </td>
                     </tr>
                   )
                 })}
                 {pagedRows.length === 0 && (
-                  <tr><td colSpan={11} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">No residents found.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">No residents found.</td></tr>
                 )}
               </tbody>
             </table>
@@ -564,40 +571,58 @@ export function CaseloadPage() {
                 </select>
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Case status
-                <input value={draft.case_status} onChange={e => setDraft(d => ({ ...d, case_status: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
+                <select value={draft.case_status} onChange={e => setDraft(d => ({ ...d, case_status: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
+                  <option value="">—</option>
+                  {CASE_STATUS_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Case category
-                <input value={draft.case_category} onChange={e => setDraft(d => ({ ...d, case_category: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
+                <select value={draft.case_category} onChange={e => setDraft(d => ({ ...d, case_category: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
+                  <option value="">—</option>
+                  {CASE_CATEGORY_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Sex
-                <input value={draft.sex} onChange={e => setDraft(d => ({ ...d, sex: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
+                <select value={draft.sex} onChange={e => setDraft(d => ({ ...d, sex: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
+                  <option value="">—</option>
+                  {SEX_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Admission date
                 <input type="date" value={draft.date_of_admission} onChange={e => setDraft(d => ({ ...d, date_of_admission: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Assigned social worker
-                <input value={draft.assigned_social_worker} onChange={e => setDraft(d => ({ ...d, assigned_social_worker: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
+                <select value={draft.assigned_social_worker} onChange={e => setDraft(d => ({ ...d, assigned_social_worker: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
+                  <option value="">—</option>
+                  {socialWorkers.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Referral source
-                <input value={draft.referral_source} onChange={e => setDraft(d => ({ ...d, referral_source: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
+                <select value={draft.referral_source} onChange={e => setDraft(d => ({ ...d, referral_source: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
+                  <option value="">—</option>
+                  {REFERRAL_SOURCE_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Referring person
                 <input value={draft.referring_agency_person} onChange={e => setDraft(d => ({ ...d, referring_agency_person: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Reintegration type
-                <input value={draft.reintegration_type} onChange={e => setDraft(d => ({ ...d, reintegration_type: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
+                <select value={draft.reintegration_type} onChange={e => setDraft(d => ({ ...d, reintegration_type: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
+                  <option value="">—</option>
+                  {REINTEGRATION_TYPE_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Reintegration status
-                <input value={draft.reintegration_status} onChange={e => setDraft(d => ({ ...d, reintegration_status: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
+                <select value={draft.reintegration_status} onChange={e => setDraft(d => ({ ...d, reintegration_status: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
+                  <option value="">—</option>
+                  {REINTEGRATION_STATUS_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Current risk level
-                <input value={draft.current_risk_level} onChange={e => setDraft(d => ({ ...d, current_risk_level: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
-              </label>
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">PWD type
-                <input value={draft.pwd_type} onChange={e => setDraft(d => ({ ...d, pwd_type: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
-              </label>
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest sm:col-span-2">Special needs diagnosis
-                <input value={draft.special_needs_diagnosis} onChange={e => setDraft(d => ({ ...d, special_needs_diagnosis: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
+                <select value={draft.current_risk_level} onChange={e => setDraft(d => ({ ...d, current_risk_level: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
+                  <option value="">—</option>
+                  {RISK_LEVEL_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
               </label>
               {([
                 ['sub_cat_trafficked', 'Trafficked'],
@@ -618,6 +643,22 @@ export function CaseloadPage() {
                   {label}
                 </label>
               ))}
+              {draft.is_pwd && (
+                <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest sm:col-span-2">PWD type
+                  <select value={draft.pwd_type} onChange={e => setDraft(d => ({ ...d, pwd_type: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
+                    <option value="">—</option>
+                    {PWD_TYPE_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </label>
+              )}
+              {draft.has_special_needs && (
+                <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest sm:col-span-2">Special needs diagnosis
+                  <select value={draft.special_needs_diagnosis} onChange={e => setDraft(d => ({ ...d, special_needs_diagnosis: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
+                    <option value="">—</option>
+                    {SPECIAL_NEEDS_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </label>
+              )}
             </div>
             {formError && <p className="px-6 pb-2 text-sm text-[#dc2626]">{formError}</p>}
             <div className="p-6 pt-2 flex justify-end gap-2 border-t border-[var(--wt-border)]">
