@@ -166,7 +166,7 @@ export function RecordedDonationForm() {
           value={campaignName}
           onChange={e => setCampaignName(e.target.value)}
           className="w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]"
-          placeholder="e.g. Wheels of Hope"
+          placeholder="e.g. Year-End Hope"
         />
       </div>
 

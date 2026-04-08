@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom'
+﻿import { Link } from 'react-router-dom'
 import { ORG } from '../../content/org'
 import { BOARD } from '../../content/board'
-import { GiveButterWidget } from '../../components/GiveButterWidget'
 import safetyIcon from '../../assets/icons/safety.png'
 import healingIcon from '../../assets/icons/healing.png'
 import justiceIcon from '../../assets/icons/justice.png'
@@ -48,7 +47,7 @@ const RECENT_POSTS = [
     href: `${ORG.legacySite}/2025/05/11/highs-and-lows-of-lighthouse/`,
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/09/372419701_1269541816887826_2749329426990876735_n.jpg',
     excerpt:
-      'I’ve struggled to write a blog for some time because I so desperately want to encapsulate everything Watchtower is—but that’s not possible.',
+      'Iâ€™ve struggled to write a blog for some time because I so desperately want to encapsulate everything Watchtower isâ€”but thatâ€™s not possible.',
   },
   {
     id: 'the-power-of-light',
@@ -57,7 +56,7 @@ const RECENT_POSTS = [
     href: `${ORG.legacySite}/2024/12/11/the-power-of-light/`,
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2025/03/DSC00649-scaled-e1743538384800.jpg',
     excerpt:
-      'I took a phone call recently that inspired this blog. A potential donor called, eager to help the survivors at Watchtower…',
+      'I took a phone call recently that inspired this blog. A potential donor called, eager to help the survivors at Watchtowerâ€¦',
   },
   {
     id: 'thankful-to-celebrate-5-years',
@@ -66,7 +65,7 @@ const RECENT_POSTS = [
     href: `${ORG.legacySite}/2023/09/12/thankful-to-celebrate-5-years/`,
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/09/img_0ae5140b8863-1.jpeg',
     excerpt:
-      'It’s been 5 years since we opened the doors to Watchtower Sanctuary here in the Philippines.',
+      'Itâ€™s been 5 years since we opened the doors to Watchtower Sanctuary here in the Philippines.',
   },
 ] as const
 
@@ -82,22 +81,14 @@ export function HomePage() {
                 Safety. Healing. Justice. Empowerment.
               </h1>
               <p className="mt-4 text-[var(--wt-text-2)] max-w-xl">
-                Click below to donate through PayPal, or visit our Donations page for more ways to give—including Wheels of Hope.
+                Click below to visit our Donations page for all ways to give.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <a
-                  href={ORG.paypalHosted}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  to="/donations"
                   className="rounded-lg bg-[var(--wt-accent)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
                 >
                   Donate Now
-                </a>
-                <Link
-                  to="/donations"
-                  className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-5 py-2.5 text-sm font-semibold text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] transition-colors"
-                >
-                  All ways to give
                 </Link>
               </div>
             </div>
@@ -136,7 +127,7 @@ export function HomePage() {
               },
               {
                 title: 'Justice',
-                text: 'Watchtower does not encourage or discourage children to file cases—we support them in pursuing what justice means for them.',
+                text: 'Watchtower does not encourage or discourage children to file casesâ€”we support them in pursuing what justice means for them.',
                 icon: justiceIcon,
                 shape: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/08/service-shape-03.png',
                 to: '/justice',
@@ -160,7 +151,7 @@ export function HomePage() {
                 <h3 className="font-display text-lg font-bold text-[var(--wt-text)]">{item.title}</h3>
                 <p className="mt-2 text-sm text-[var(--wt-text-2)] leading-relaxed">{item.text}</p>
                 <Link to={item.to} className="mt-3 inline-block text-sm font-semibold text-[var(--wt-accent)] hover:underline">
-                  Learn more →
+                  Learn more â†’
                 </Link>
               </div>
             ))}
@@ -203,7 +194,7 @@ export function HomePage() {
             />
             <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-accent-2)] p-4 flex items-center">
               <p className="text-sm font-medium text-[var(--wt-text)] italic leading-relaxed">
-                “Watchtower is a safe place, where we are treated as family”
+                â€œWatchtower is a safe place, where we are treated as familyâ€
               </p>
             </div>
           </div>
@@ -217,20 +208,6 @@ export function HomePage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-8">
-          <h2 className="font-display text-2xl font-bold text-center">Wheels of Hope</h2>
-          <p className="mt-1 text-center text-[var(--wt-text-2)]">A van that changes lives</p>
-          <p className="mt-6 text-[var(--wt-text)] leading-relaxed max-w-3xl mx-auto">
-            Every mile matters when a girl’s safety and future are on the line. Our <em>Wheels of Hope</em> campaign supports the
-            purchase of a <strong>new van</strong> that does far more than provide transportation—it delivers{' '}
-            <strong>security, dignity, and connection</strong>. The vans bring girls to <strong>safety</strong>, shuttle them to{' '}
-            <strong>court hearings</strong> to seek justice, and take them to church and community activities that help them build
-            trust with safe, caring people.
-          </p>
-          <div className="mt-8 max-w-xl mx-auto">
-            <GiveButterWidget />
-          </div>
-        </section>
 
         <section>
           <div className="text-center mb-8">
@@ -268,14 +245,12 @@ export function HomePage() {
           <h2 className="font-display text-2xl sm:text-3xl font-bold max-w-2xl mx-auto relative z-10">
             Bring safety, healing and empowerment to children in need
           </h2>
-          <a
-            href={ORG.paypalHosted}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            to="/donations"
             className="mt-6 inline-flex rounded-lg bg-[var(--wt-accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors relative z-10"
           >
             Donate now
-          </a>
+          </Link>
         </section>
 
         <section>
@@ -303,7 +278,7 @@ export function HomePage() {
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
             <h2 className="font-display text-2xl sm:text-3xl font-bold">Recent posts</h2>
             <Link to="/blog" className="text-sm font-semibold text-[var(--wt-accent)] hover:underline">
-              View all →
+              View all â†’
             </Link>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
@@ -319,7 +294,7 @@ export function HomePage() {
                   </h3>
                   <p className="mt-2 text-sm text-[var(--wt-text-2)] leading-relaxed flex-1">{post.excerpt}</p>
                   <Link to={`/blog#${post.id}`} className="mt-4 text-sm font-semibold text-[var(--wt-accent)]">
-                    Read on blog →
+                    Read on blog â†’
                   </Link>
                 </div>
               </article>
