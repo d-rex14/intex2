@@ -32,7 +32,7 @@ export function RequirePortalAccess() {
   }
 
   if (!canAccessPath(effectiveRoleIds, location.pathname)) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/portal" replace />;
   }
 
   return <Outlet />;

@@ -7,6 +7,57 @@ import { BASE_CURRENCY, convertCurrency, FX_TO_PHP, SUPPORTED_CURRENCIES, toPHP 
 import { isStaffLike } from '../../lib/roles'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
+type UpgradeScore = {
+  supporter_id: number
+  score: number
+  band: 'High' | 'Medium' | 'Low'
+  recommended_action: string | null
+  model_version: string
+  scored_at: string
+}
+
+type ChurnScore = {
+  supporter_id: number
+  churn_prob: number | null
+  churn_risk_band: 'High' | 'Medium' | 'Low'
+  model_version: string
+  scored_at: string
+}
+
+async function fetchUpgradeScores(): Promise<{ data: UpgradeScore[] | null; error: { message: string } | null }> {
+  if (!supabase) return { data: null, error: { message: 'Supabase is not configured.' } }
+  const { data, error } = await supabase
+    .from('donor_upgrade_scores')
+    .select('supporter_id, score, band, recommended_action, model_version, scored_at')
+    .order('score', { ascending: false })
+  if (error) return { data: null, error: { message: error.message } }
+  return { data: (data ?? []) as UpgradeScore[], error: null }
+}
+
+async function fetchChurnScores(): Promise<{ data: ChurnScore[] | null; error: { message: string } | null }> {
+  if (!supabase) return { data: null, error: { message: 'Supabase is not configured.' } }
+  const { data, error } = await supabase
+    .from('donor_churn_scores')
+    .select('supporter_id, churn_prob, churn_risk_band, model_version, scored_at')
+  if (error) return { data: null, error: { message: error.message } }
+  return { data: (data ?? []) as ChurnScore[], error: null }
+}
+
+function BandPill({ band, type }: { band: string; type: 'upgrade' | 'churn' }) {
+  const colors: Record<string, string> = {
+    High: type === 'upgrade'
+      ? 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-accent)] border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]'
+      : 'bg-[color-mix(in_srgb,#dc2626_14%,transparent)] text-[#dc2626] border-[color-mix(in_srgb,#dc2626_30%,transparent)]',
+    Medium: 'bg-[color-mix(in_srgb,var(--wt-text-2)_14%,transparent)] text-[var(--wt-text-2)] border-[color-mix(in_srgb,var(--wt-text-2)_25%,transparent)]',
+    Low: 'bg-[color-mix(in_srgb,var(--wt-border)_40%,transparent)] text-[var(--wt-text-2)] border-[var(--wt-border)]',
+  }
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${colors[band] ?? colors.Low}`}>
+      {band}
+    </span>
+  )
+}
+
 type SupporterEmbed = {
   display_name: string | null
   organization_name: string | null
@@ -540,7 +591,6 @@ export function DonorsContributionsPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   const queryFn = useMemo(() => () => fetchDonations(), [])
-
   const { data: rawRows, loading, error, refetch } = useSupabaseQuery(queryFn)
 
   const allocationsQueryFn = useMemo(() => () => fetchAllocations(), [])
@@ -549,6 +599,46 @@ export function DonorsContributionsPage() {
     loading: allocationsLoading,
     error: allocationsError,
   } = useSupabaseQuery(allocationsQueryFn)
+
+  const upgradeScoresQueryFn = useMemo(() => () => fetchUpgradeScores(), [])
+  const { data: upgradeScores, loading: upgradeLoading } = useSupabaseQuery(upgradeScoresQueryFn)
+
+  const churnScoresQueryFn = useMemo(() => () => fetchChurnScores(), [])
+  const { data: churnScores } = useSupabaseQuery(churnScoresQueryFn)
+
+  const upgradeBySupporter = useMemo(() => {
+    const m = new Map<number, UpgradeScore>()
+    for (const s of upgradeScores ?? []) m.set(s.supporter_id, s)
+    return m
+  }, [upgradeScores])
+
+  const churnBySupporter = useMemo(() => {
+    const m = new Map<number, ChurnScore>()
+    for (const s of churnScores ?? []) m.set(s.supporter_id, s)
+    return m
+  }, [churnScores])
+
+  // Top upgrade candidates — join score with latest donor label from rawRows.
+  const upgradeCandidates = useMemo(() => {
+    const scores = upgradeScores ?? []
+    if (scores.length === 0) return []
+    const latestBySupporter = new Map<number, DonationWithSupporter>()
+    for (const r of rawRows ?? []) {
+      if (r.supporter_id == null) continue
+      const prev = latestBySupporter.get(r.supporter_id)
+      if (!prev || (r.donation_date ?? '') > (prev.donation_date ?? '')) {
+        latestBySupporter.set(r.supporter_id, r)
+      }
+    }
+    return scores.slice(0, 10).map(s => ({
+      ...s,
+      donor: (() => {
+        const row = latestBySupporter.get(s.supporter_id)
+        return row ? donorLabel(row) : `Supporter #${s.supporter_id}`
+      })(),
+      lastGift: latestBySupporter.get(s.supporter_id)?.donation_date ?? null,
+    }))
+  }, [upgradeScores, rawRows])
 
   const resourcesFunded = useMemo(() => {
     const rows = allocationRows ?? []
@@ -880,6 +970,72 @@ export function DonorsContributionsPage() {
         </div>
       </div>
 
+      {staff && (
+        <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-5">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Upgrade Opportunity Queue</h2>
+              <p className="text-sm text-[var(--wt-text-2)] mt-1">
+                Donors most likely to convert to recurring giving, ranked by model score.{' '}
+                <span className="text-[10px] uppercase tracking-widest">Decision support only</span>
+              </p>
+            </div>
+            {(upgradeScores ?? []).length > 0 && (
+              <span className="shrink-0 text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">
+                Model v{upgradeScores![0].model_version} · {upgradeScores![0].scored_at.slice(0, 10)}
+              </span>
+            )}
+          </div>
+
+          {upgradeLoading ? (
+            <div className="flex items-center gap-3 py-8 justify-center text-sm text-[var(--wt-text-2)]">
+              <div className="w-6 h-6 border-2 border-[var(--wt-accent)] border-t-transparent rounded-full animate-spin" />
+              Loading upgrade scores…
+            </div>
+          ) : upgradeCandidates.length === 0 ? (
+            <p className="text-sm text-[var(--wt-text-2)] py-4 text-center">
+              Upgrade scores not yet available. Run the{' '}
+              <code className="text-xs">04_donor_upgrade_predictor</code> notebook and export to{' '}
+              <code className="text-xs">donor_upgrade_scores</code>.
+            </p>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)]">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
+                    <th className="px-4 py-3 font-medium">Rank</th>
+                    <th className="px-4 py-3 font-medium">Donor</th>
+                    <th className="px-4 py-3 font-medium text-right">Score</th>
+                    <th className="px-4 py-3 font-medium">Band</th>
+                    <th className="px-4 py-3 font-medium">Last Gift</th>
+                    <th className="px-4 py-3 font-medium min-w-[12rem]">Recommended Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {upgradeCandidates.map((c, idx) => (
+                    <tr
+                      key={c.supporter_id}
+                      className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]"
+                    >
+                      <td className="px-4 py-3 text-[var(--wt-text-2)] tabular-nums">{idx + 1}</td>
+                      <td className="px-4 py-3 text-[var(--wt-text)] font-medium">{c.donor}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        <span className="text-[var(--wt-accent)] font-semibold">{(c.score * 100).toFixed(1)}%</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <BandPill band={c.band} type="upgrade" />
+                      </td>
+                      <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{c.lastGift ?? '—'}</td>
+                      <td className="px-4 py-3 text-[var(--wt-text-2)] text-xs">{c.recommended_action ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-5">
           <div className="flex items-start justify-between gap-3">
@@ -902,17 +1058,18 @@ export function DonorsContributionsPage() {
           </div>
 
           <div className="mt-4 overflow-hidden rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[380px] overflow-y-auto">
-            <table className="w-full text-left text-sm">
+              <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
                   <th className="px-4 py-3 font-medium">Donor</th>
                   <th className="px-4 py-3 font-medium text-right">Total ({currency})</th>
+                  {staff && <th className="px-4 py-3 font-medium">Lapse Risk</th>}
                 </tr>
               </thead>
               <tbody>
                 {topDonors.length === 0 ? (
                   <tr>
-                    <td colSpan={2} className="px-4 py-6 text-sm text-[var(--wt-text-2)] text-center">
+                    <td colSpan={staff ? 3 : 2} className="px-4 py-6 text-sm text-[var(--wt-text-2)] text-center">
                       No matching donations found yet.
                     </td>
                   </tr>
@@ -928,6 +1085,7 @@ export function DonorsContributionsPage() {
                     ]
                       .filter(Boolean)
                       .join('\n')
+                    const churn = d.supporter_id != null ? churnBySupporter.get(d.supporter_id) : undefined
 
                     return (
                       <tr
@@ -952,6 +1110,15 @@ export function DonorsContributionsPage() {
                             {formatMoney(currency, d.total)}
                           </span>
                         </td>
+                        {staff && (
+                          <td className="px-4 py-3">
+                            {churn ? (
+                              <BandPill band={churn.churn_risk_band} type="churn" />
+                            ) : (
+                              <span className="text-[var(--wt-text-2)] text-xs">—</span>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     )
                   })
@@ -1268,6 +1435,37 @@ export function DonorsContributionsPage() {
             </div>
 
             <div className="p-6 space-y-6">
+              {staff && donorDetail.supporter_id != null && upgradeBySupporter.get(donorDetail.supporter_id) && (() => {
+                const us = upgradeBySupporter.get(donorDetail.supporter_id)!
+                const cs = churnBySupporter.get(donorDetail.supporter_id)
+                return (
+                  <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-3">Upgrade Insight</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Upgrade Score</div>
+                        <div className="text-xl font-semibold text-[var(--wt-accent)] tabular-nums">{(us.score * 100).toFixed(1)}%</div>
+                        <BandPill band={us.band} type="upgrade" />
+                      </div>
+                      {cs && (
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Lapse Risk</div>
+                          <div className="text-xl font-semibold tabular-nums text-[var(--wt-text)]">
+                            {cs.churn_prob != null ? `${(cs.churn_prob * 100).toFixed(1)}%` : '—'}
+                          </div>
+                          <BandPill band={cs.churn_risk_band} type="churn" />
+                        </div>
+                      )}
+                      <div className={cs ? '' : 'sm:col-span-2'}>
+                        <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Recommended Action</div>
+                        <p className="text-sm text-[var(--wt-text)]">{us.recommended_action ?? '—'}</p>
+                        <p className="text-[10px] text-[var(--wt-text-2)] mt-2">Model v{us.model_version} · {us.scored_at.slice(0, 10)} · Decision support only</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
               <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
                 <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Totals by type ({currency})</div>
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">

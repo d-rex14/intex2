@@ -33,14 +33,16 @@ const ALL_ASSIGNED = [
 /** Longest-prefix wins; order matters (most specific first). */
 const ROUTE_ACCESS_RULES: { prefix: string; allowedRoleIds: readonly number[] }[] = [
   // Sensitive case-management routes: staff + admin only
-  { prefix: '/admin/visitations', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF] },
-  { prefix: '/admin/process-recordings', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF] },
-  { prefix: '/admin/caseload', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF] },
+  { prefix: '/portal/visitations', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF] },
+  { prefix: '/portal/process-recordings', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF] },
+  { prefix: '/portal/caseload', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF] },
   // Reports: staff, admin, and social_media_rep (they need outreach analytics)
-  { prefix: '/admin/reports', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.SOCIAL_MEDIA_REP] },
+  { prefix: '/portal/reports', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.SOCIAL_MEDIA_REP] },
+  // Site users: admin only
+  { prefix: '/portal/site-users', allowedRoleIds: [ROLE_IDS.ADMIN] },
   // Donors page: staff/admin full CRUD; donors, social_media_rep, and basic users see own giving
   {
-    prefix: '/admin/donors',
+    prefix: '/portal/donors',
     allowedRoleIds: [
       ROLE_IDS.ADMIN,
       ROLE_IDS.STAFF,
@@ -49,8 +51,10 @@ const ROUTE_ACCESS_RULES: { prefix: string; allowedRoleIds: readonly number[] }[
       ROLE_IDS.USER,
     ],
   },
+  // Your donations: any signed-in user
+  { prefix: '/portal/your-donations', allowedRoleIds: [...ALL_ASSIGNED] },
   // Dashboard: everyone with any role (includes fallback USER for new accounts)
-  { prefix: '/admin', allowedRoleIds: [...ALL_ASSIGNED] },
+  { prefix: '/portal', allowedRoleIds: [...ALL_ASSIGNED] },
 ]
 
 export function normalizeAdminPath(pathname: string): string {
@@ -73,13 +77,13 @@ export function isStaffLike(roleIds: readonly number[]): boolean {
 }
 
 /**
- * Whether the user may open this pathname under `/admin`.
- * ADMIN (4) always returns true for any route under `/admin`.
+ * Whether the user may open this pathname under `/portal`.
+ * ADMIN (4) always returns true for any route under `/portal`.
  */
 export function canAccessPath(roleIds: readonly number[], pathname: string): boolean {
   if (roleIds.includes(ROLE_IDS.ADMIN)) return true
   const path = normalizeAdminPath(pathname)
-  if (!path.startsWith('/admin')) return false
+  if (!path.startsWith('/portal')) return false
 
   for (const rule of ROUTE_ACCESS_RULES) {
     if (path === rule.prefix || path.startsWith(`${rule.prefix}/`)) {
@@ -136,10 +140,12 @@ export function resolveEffectiveRoleIds(dbRoleIds: readonly number[], user: User
 }
 
 export const ADMIN_NAV_PATHS = [
-  '/admin',
-  '/admin/donors',
-  '/admin/caseload',
-  '/admin/process-recordings',
-  '/admin/visitations',
-  '/admin/reports',
+  '/portal',
+  '/portal/donors',
+  '/portal/caseload',
+  '/portal/process-recordings',
+  '/portal/visitations',
+  '/portal/reports',
+  '/portal/your-donations',
+  '/portal/site-users',
 ] as const
