@@ -26,6 +26,7 @@ import { SocialPage } from './pages/public/SocialPage'
 import { CaseloadPage } from './pages/portal/CaseloadPage'
 import { DashboardPage } from './pages/portal/DashboardPage'
 import { DonorsContributionsPage } from './pages/portal/DonorsContributionsPage'
+import { ProcessRecordingsPage } from './pages/portal/ProcessRecordingsPage'
 import { ReportsPage } from './pages/portal/ReportsPage'
 import { SiteUsersPage } from './pages/portal/SiteUsersPage'
 import { YourDonationsPage } from './pages/portal/YourDonationsPage'
@@ -344,7 +345,7 @@ export function App() {
           <Route index element={<DashboardPage />} />
           <Route path="donors" element={<DonorsContributionsPage />} />
           <Route path="caseload" element={<CaseloadPage />} />
-          <Route path="process-recordings" element={<AdminPlaceholder title="Process Recordings" />} />
+          <Route path="process-recordings" element={<ProcessRecordingsPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="your-donations" element={<YourDonationsPage />} />
           <Route path="site-users" element={<SiteUsersPage />} />
