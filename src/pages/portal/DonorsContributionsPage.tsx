@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
 import { campaignOptionsForSelect } from '../../lib/fundraisingCampaigns'
-import { BASE_CURRENCY, FX_TO_PHP, toPHP } from '../../lib/fxRates'
+import { BASE_CURRENCY, convertCurrency, FX_TO_PHP, SUPPORTED_CURRENCIES, toPHP } from '../../lib/fxRates'
 import { isStaffLike } from '../../lib/roles'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
@@ -65,11 +65,12 @@ function donorEmail(row: DonationWithSupporter): string {
   return row.supporters?.email?.trim() || '—'
 }
 
-function formatPHP(n: number): string {
-  return `PHP ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+function formatMoney(currencyCode: string, n: number): string {
+  const cur = (currencyCode || BASE_CURRENCY).trim().toUpperCase() || BASE_CURRENCY
+  return `${cur} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function formatAmount(row: DonationWithSupporter): string {
+function formatAmount(row: DonationWithSupporter, displayCurrency: string): string {
   const unit = row.impact_unit?.toLowerCase() ?? ''
   const val = row.amount ?? row.estimated_value
   if (val == null) return '—'
@@ -81,11 +82,10 @@ function formatAmount(row: DonationWithSupporter): string {
   if (unit === 'items' || row.donation_type === 'InKind') {
     return `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} items (est.)`
   }
-  const cur = row.currency_code?.trim() || ''
-  if (cur) {
-    return `${cur} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const fromCur = row.currency_code?.trim() || BASE_CURRENCY
+  const fx = convertCurrency(n, fromCur, displayCurrency)
+  if (fx.converted == null) return `${fromCur} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return formatMoney(displayCurrency, fx.converted)
 }
 
 function sortFilteredByDate(
@@ -160,7 +160,7 @@ async function fetchAllocations(): Promise<{
 
   const { data, error } = await supabase
     .from('donation_allocations')
-    .select('donation_id, program_area, amount_allocated')
+    .select('donation_id, program_area, amount_allocated, allocation_date')
     .limit(5000)
 
   if (error) return { data: null, error: { message: error.message } }
@@ -184,9 +184,11 @@ const CHART_COLORS = ['#475569', '#c59a54', '#6b7280', '#c2b89c', '#f59e0b', '#9
 function DonutChart({
   title,
   data,
+  valueCurrency,
 }: {
   title: string
   data: { label: string; value: number; color: string }[]
+  valueCurrency: string
 }) {
   const total = data.reduce((sum, d) => sum + d.value, 0)
   const size = 220
@@ -294,7 +296,7 @@ function DonutChart({
         >
           <div className="font-semibold">{hover.label}</div>
           <div className="text-[var(--wt-text-2)] mt-0.5">
-            {formatPHP(hover.value)} • {(hover.frac * 100).toFixed(1)}%
+            {formatMoney(valueCurrency, hover.value)} • {(hover.frac * 100).toFixed(1)}%
           </div>
         </div>
       )}
@@ -310,6 +312,12 @@ export function DonorsContributionsPage() {
   const [sortByDate, setSortByDate] = useState<'newest' | 'oldest'>('newest')
   const [pageSize, setPageSize] = useState<number>(25)
   const [page, setPage] = useState(1)
+  const [currency, setCurrency] = useState<string>(BASE_CURRENCY)
+  const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false)
+  const [topDonorsType, setTopDonorsType] = useState<'all' | DonationType>('Monetary')
+  const [allocationTime, setAllocationTime] = useState<
+    'all' | '1y' | '6m' | '1m' | '2w' | '1w'
+  >('all')
 
   const [detailRow, setDetailRow] = useState<DonationWithSupporter | null>(null)
   const [editing, setEditing] = useState<DonationWithSupporter | null>(null)
@@ -330,8 +338,28 @@ export function DonorsContributionsPage() {
 
   const resourcesFunded = useMemo(() => {
     const rows = allocationRows ?? []
+    const now = Date.now()
+    const msDay = 24 * 60 * 60 * 1000
+    const cutoff =
+      allocationTime === 'all'
+        ? null
+        : allocationTime === '1y'
+          ? now - 365 * msDay
+          : allocationTime === '6m'
+            ? now - 183 * msDay
+            : allocationTime === '1m'
+              ? now - 30 * msDay
+              : allocationTime === '2w'
+                ? now - 14 * msDay
+                : now - 7 * msDay
+
     const m = new Map<string, number>()
     for (const r of rows) {
+      if (cutoff != null) {
+        const d = (r.allocation_date ?? '').toString().slice(0, 10)
+        const t = d ? Date.parse(`${d}T00:00:00Z`) : Number.NaN
+        if (!Number.isFinite(t) || t < cutoff) continue
+      }
       const label = (r.program_area ?? '').trim() || 'Uncategorized'
       const amt = Number(r.amount_allocated ?? 0)
       if (!Number.isFinite(amt) || amt <= 0) continue
@@ -340,39 +368,43 @@ export function DonorsContributionsPage() {
     const entries = [...m.entries()].sort((a, b) => b[1] - a[1])
     return entries.map(([label, value], i) => ({
       label,
-      value,
+      // allocations assumed stored in PHP; display in selected currency
+      value:
+        convertCurrency(value, BASE_CURRENCY, currency).converted ??
+        value,
       color: CHART_COLORS[i % CHART_COLORS.length],
     }))
-  }, [allocationRows])
+  }, [allocationRows, allocationTime, currency])
 
   const topDonors = useMemo(() => {
     const rows = rawRows ?? []
     const totals = new Map<string, { donor: string; totalPHP: number; breakdown: Map<string, number>; hasMissingFX: boolean }>()
 
     for (const r of rows) {
-      if (r.donation_type !== 'Monetary') continue
-      if (r.amount == null) continue
+      if (topDonorsType !== 'all' && r.donation_type !== topDonorsType) continue
+      const val = r.amount ?? r.estimated_value
+      if (val == null) continue
       const key = r.supporter_id != null ? `supporter:${r.supporter_id}` : `email:${donorEmail(r)}`
       const donor = donorLabel(r)
       const cur = (r.currency_code ?? BASE_CURRENCY).trim().toUpperCase() || BASE_CURRENCY
-      const fx = toPHP(Number(r.amount), cur)
+      const fx = convertCurrency(Number(val), cur, currency)
 
       const prev = totals.get(key) ?? { donor, totalPHP: 0, breakdown: new Map<string, number>(), hasMissingFX: false }
-      if (fx.php == null) {
+      if (fx.converted == null) {
         prev.hasMissingFX = true
         totals.set(key, prev)
         continue
       }
-      prev.totalPHP += fx.php
-      prev.breakdown.set(cur, (prev.breakdown.get(cur) ?? 0) + Number(r.amount))
+      prev.totalPHP += fx.converted
+      prev.breakdown.set(cur, (prev.breakdown.get(cur) ?? 0) + Number(val))
       // Prefer a nicer donor label if we see one later.
       if (prev.donor === '—' && donor !== '—') prev.donor = donor
       totals.set(key, prev)
     }
 
     const sorted = [...totals.values()].sort((a, b) => b.totalPHP - a.totalPHP)
-    return sorted.slice(0, 3)
-  }, [rawRows])
+    return sorted.slice(0, 5)
+  }, [rawRows, topDonorsType, currency])
 
   const filteredRows = useMemo(() => {
     const rows = rawRows ?? []
@@ -473,13 +505,55 @@ export function DonorsContributionsPage() {
             )}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="shrink-0 rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_18%,transparent)] transition-colors"
-        >
-          Refresh
-        </button>
+        <div className="relative flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="shrink-0 rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_18%,transparent)] transition-colors"
+          >
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrencyMenuOpen(o => !o)}
+            className="shrink-0 rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_18%,transparent)] transition-colors"
+            aria-haspopup="menu"
+            aria-expanded={currencyMenuOpen}
+          >
+            Currency: {currency}
+          </button>
+
+          {currencyMenuOpen && (
+            <div
+              className="absolute right-0 top-full mt-2 w-44 rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl overflow-hidden z-40"
+              role="menu"
+            >
+              <div className="px-3 py-2 text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] border-b border-[var(--wt-border)]">
+                Display currency
+              </div>
+              {SUPPORTED_CURRENCIES.map(cur => (
+                <button
+                  key={cur}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setCurrency(cur)
+                    setCurrencyMenuOpen(false)
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_16%,transparent)] ${
+                    cur === currency ? 'text-[var(--wt-text)] font-semibold' : 'text-[var(--wt-text-2)]'
+                  }`}
+                  title={`Uses static FX rates; original donation currency may differ.`}
+                >
+                  {cur}
+                </button>
+              ))}
+              <div className="px-3 py-2 text-[10px] text-[var(--wt-text-2)] border-t border-[var(--wt-border)]">
+                Static rates (edit in <code>src/lib/fxRates.ts</code>).
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {formError && <p className="text-sm text-[#dc2626]">{formError}</p>}
@@ -489,10 +563,31 @@ export function DonorsContributionsPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Top Donors</h2>
-              <p className="text-xs text-[var(--wt-text-2)] mt-1">
-                Top 3 monetary donors by total giving (converted to PHP using static rates).
-              </p>
+            <p className="text-xs text-[var(--wt-text-2)] mt-1">
+              Top 5 donors by selected donation type (converted using static rates).
+            </p>
             </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 min-w-[12rem]">
+              <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Donation type</span>
+              <select
+                className={selectClass}
+                value={topDonorsType}
+                onChange={e => setTopDonorsType(e.target.value as 'all' | DonationType)}
+              >
+                <option value="all">All types</option>
+                {DONATION_TYPES.map(t => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="text-xs text-[var(--wt-text-2)]">
+              Totals shown in <span className="text-[var(--wt-text)] font-semibold">{currency}</span>.
+            </p>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)]">
@@ -500,14 +595,14 @@ export function DonorsContributionsPage() {
               <thead>
                 <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
                   <th className="px-4 py-3 font-medium">Donor</th>
-                  <th className="px-4 py-3 font-medium text-right">Total (PHP)</th>
+                  <th className="px-4 py-3 font-medium text-right">Total ({currency})</th>
                 </tr>
               </thead>
               <tbody>
                 {topDonors.length === 0 ? (
                   <tr>
                     <td colSpan={2} className="px-4 py-6 text-sm text-[var(--wt-text-2)] text-center">
-                      No monetary donations found yet.
+                      No matching donations found yet.
                     </td>
                   </tr>
                 ) : (
@@ -541,7 +636,7 @@ export function DonorsContributionsPage() {
                             className="text-[var(--wt-text)] font-semibold"
                             title={tooltip || undefined}
                           >
-                            {formatPHP(d.totalPHP)}
+                            {formatMoney(currency, d.totalPHP)}
                           </span>
                         </td>
                       </tr>
@@ -560,6 +655,26 @@ export function DonorsContributionsPage() {
               Breakdown of allocated funds by program area.
             </p>
           </div>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 min-w-[12rem]">
+              <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Time range</span>
+              <select
+                className={selectClass}
+                value={allocationTime}
+                onChange={e => setAllocationTime(e.target.value as typeof allocationTime)}
+              >
+                <option value="all">All-time</option>
+                <option value="1y">Last Year</option>
+                <option value="6m">Last 6 Months</option>
+                <option value="1m">Last Month</option>
+                <option value="2w">Last 2 Weeks</option>
+                <option value="1w">Last Week</option>
+              </select>
+            </label>
+            <p className="text-xs text-[var(--wt-text-2)]">
+              Totals shown in <span className="text-[var(--wt-text)] font-semibold">{currency}</span>.
+            </p>
+          </div>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 items-center">
             <div className="flex justify-center md:justify-start">
               {allocationsLoading ? (
@@ -572,7 +687,7 @@ export function DonorsContributionsPage() {
               ) : resourcesFunded.length === 0 ? (
                 <p className="text-sm text-[var(--wt-text-2)]">No allocation data found yet.</p>
               ) : (
-                <DonutChart title="Resources Funded" data={resourcesFunded} />
+                <DonutChart title="Resources Funded" data={resourcesFunded} valueCurrency={currency} />
               )}
             </div>
 
@@ -585,13 +700,13 @@ export function DonorsContributionsPage() {
                       <span
                         className="inline-block w-3 h-3 rounded-sm border border-[var(--wt-border)]"
                         style={{ backgroundColor: d.color }}
-                        title={`${d.label}: ${formatPHP(d.value)}`}
+                        title={`${d.label}: ${formatMoney(currency, d.value)}`}
                       />
                       <span className="text-[var(--wt-text)] truncate" title={d.label}>
                         {d.label}
                       </span>
-                      <span className="ml-auto text-[var(--wt-text-2)] tabular-nums" title={formatPHP(d.value)}>
-                        {formatPHP(d.value)}
+                      <span className="ml-auto text-[var(--wt-text-2)] tabular-nums" title={formatMoney(currency, d.value)}>
+                        {formatMoney(currency, d.value)}
                       </span>
                     </li>
                   ))}
@@ -692,7 +807,7 @@ export function DonorsContributionsPage() {
                     <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">
                       {row.donation_date ?? '—'}
                     </td>
-                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{formatAmount(row)}</td>
+                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{formatAmount(row, currency)}</td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
@@ -809,7 +924,7 @@ export function DonorsContributionsPage() {
               <DetailField label="Campaign">{detailRow.campaign_name?.trim() || '—'}</DetailField>
               <DetailField label="Channel">{detailRow.channel_source ?? '—'}</DetailField>
               <DetailField label="Currency">{detailRow.currency_code?.trim() || '—'}</DetailField>
-              <DetailField label="Amount">{formatAmount(detailRow)}</DetailField>
+              <DetailField label={`Amount (shown in ${currency})`}>{formatAmount(detailRow, currency)}</DetailField>
               <DetailField label="Estimated value">
                 {detailRow.estimated_value != null ? String(detailRow.estimated_value) : '—'}
               </DetailField>
