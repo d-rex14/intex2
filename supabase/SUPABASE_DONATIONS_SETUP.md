@@ -2,13 +2,51 @@
 
 Run these statements in the **Supabase SQL Editor** (or via CLI migrations) **after reviewing** each section. Order matters: extensions → sequences → columns → functions → RPC → RLS policies → grants.
 
+---
+
+## 0. Troubleshooting: portal not loading after applying SQL
+
+If the portal spins forever or the admin area does not render after running these steps, the most likely cause is that **`user_roles` has Row Level Security enabled but no SELECT policy** for authenticated users. The `AuthContext` queries this table directly via PostgREST and if RLS blocks it, the roles query returns empty, and the portal becomes inaccessible.
+
+### Diagnose
+
+```sql
+-- Check whether RLS is active on user_roles
+SELECT relname, relrowsecurity
+FROM pg_class
+WHERE relname = 'user_roles'
+  AND relnamespace = 'public'::regnamespace;
+
+-- List existing policies on user_roles
+SELECT policyname, cmd, roles, qual
+FROM pg_policies
+WHERE tablename = 'user_roles' AND schemaname = 'public';
+```
+
+If `relrowsecurity = true` and there is **no `SELECT` policy**, run the fix below.
+
+### Fix
+
+```sql
+-- Allow authenticated users to read their own role rows
+CREATE POLICY IF NOT EXISTS "users_read_own_roles"
+  ON public.user_roles
+  FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid());
+```
+
+After running this, hard-refresh the browser and sign in again. The portal should load.
+
+---
+
 This matches the Watchtower app behavior: public **demo donation** via RPC (`SECURITY DEFINER`), **staff** CRUD on `supporters` / `donations`, **donors** read-only rows tied to their email or `auth_user_id`.
 
 ---
 
 ## 1. `user_roles`: allow multiple roles per user
 
-The app ([`src/lib/roles.ts`](../src/lib/roles.ts)) expects **multiple** `user_roles` rows per `user_id` (e.g. staff + donor). If your table has **`UNIQUE (user_id)`**, drop that constraint so `(user_id, role_id)` can repeat for different `role_id` values.
+The app (`[src/lib/roles.ts](../src/lib/roles.ts)`) expects **multiple** `user_roles` rows per `user_id` (e.g. staff + donor). If your table has `**UNIQUE (user_id)`**, drop that constraint so `(user_id, role_id)` can repeat for different `role_id` values.
 
 ```sql
 -- List constraints (optional sanity check)
@@ -296,10 +334,10 @@ CREATE POLICY donations_self_select
 
 ## 7. Verification checklist
 
-- [ ] `submit_public_demo_donation` succeeds as **anon** (e.g. SQL `select submit_public_demo_donation(...)` with `SET request.jwt.claim` or from the app without login).
-- [ ] Logged-in **staff** can `select` / `update` / `delete` on `donations`.
-- [ ] Logged-in **donor** sees only rows matching email / `auth_user_id`.
-- [ ] Multiple `user_roles` rows per user work (e.g. user has both STAFF and DONOR if you insert both).
+- `submit_public_demo_donation` succeeds as **anon** (e.g. SQL `select submit_public_demo_donation(...)` with `SET request.jwt.claim` or from the app without login).
+- Logged-in **staff** can `select` / `update` / `delete` on `donations`.
+- Logged-in **donor** sees only rows matching email / `auth_user_id`.
+- Multiple `user_roles` rows per user work (e.g. user has both STAFF and DONOR if you insert both).
 
 ---
 
@@ -311,7 +349,7 @@ You can add a trigger to maintain `supporters.first_donation_date` on new donati
 
 ## Related frontend (this repo)
 
-After SQL is applied: public form calls `submit_public_demo_donation` from [`src/components/RecordedDonationForm.tsx`](../src/components/RecordedDonationForm.tsx); staff/donor list is [`src/pages/admin/DonorsContributionsPage.tsx`](../src/pages/admin/DonorsContributionsPage.tsx). Route access for `/admin/donors` includes `MEMBER` so signed-in users can open **My giving** (read-only) per [`src/lib/roles.ts`](../src/lib/roles.ts).
+After SQL is applied: public form calls `submit_public_demo_donation` from `[src/components/RecordedDonationForm.tsx](../src/components/RecordedDonationForm.tsx)`; staff/donor list is `[src/pages/admin/DonorsContributionsPage.tsx](../src/pages/admin/DonorsContributionsPage.tsx)`. Route access for `/admin/donors` includes `MEMBER` so signed-in users can open **My giving** (read-only) per `[src/lib/roles.ts](../src/lib/roles.ts)`.
 
 ---
 
@@ -321,3 +359,4 @@ After SQL is applied: public form calls `submit_public_demo_donation` from [`src
 - `DROP POLICY …` for each policy added
 - `ALTER TABLE … DISABLE ROW LEVEL SECURITY;` (only if you understand exposure)
 - Restore `UNIQUE (user_id)` on `user_roles` only if you intentionally revert to single-role semantics (app routing will need to match).
+

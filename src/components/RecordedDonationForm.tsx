@@ -39,6 +39,8 @@ export function RecordedDonationForm() {
     )
   }
 
+  const supabaseClient = supabase
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -52,7 +54,7 @@ export function RecordedDonationForm() {
       return
     }
 
-    const { data, error: rpcError } = await supabase.rpc('submit_public_demo_donation', {
+    const { data, error: rpcError } = await supabaseClient.rpc('submit_public_demo_donation', {
       p_first_name: firstName.trim(),
       p_last_name: lastName.trim(),
       p_email: email.trim(),

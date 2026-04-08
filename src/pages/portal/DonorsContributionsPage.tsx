@@ -26,6 +26,12 @@ export type DonationWithSupporter = {
   supporters: SupporterEmbed
 }
 
+/** PostgREST may return a nested FK as one object or a single-element array depending on typings. */
+function embedSupporter(s: SupporterEmbed | NonNullable<SupporterEmbed>[] | null | undefined): SupporterEmbed {
+  if (s == null) return null
+  return Array.isArray(s) ? (s[0] ?? null) : s
+}
+
 function donorLabel(row: DonationWithSupporter): string {
   const s = row.supporters
   if (!s) return '—'
@@ -112,7 +118,12 @@ async function fetchDonationsSortedByFrequency(): Promise<{
     return { data: null, error: { message: error.message } }
   }
 
-  const rows = (data ?? []) as DonationWithSupporter[]
+  const rows: DonationWithSupporter[] = (data ?? []).map(row => {
+    const r = row as Omit<DonationWithSupporter, 'supporters'> & {
+      supporters: SupporterEmbed | NonNullable<SupporterEmbed>[] | null
+    }
+    return { ...r, supporters: embedSupporter(r.supporters) }
+  })
   return { data: sortDonationsBySupporterFrequency(rows), error: null }
 }
 
