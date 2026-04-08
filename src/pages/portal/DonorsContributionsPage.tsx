@@ -216,6 +216,15 @@ function formatShortDateUTC(t: number): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
+function startOfWeekUTC(t: number): number {
+  // Use Monday as the first day of week.
+  const d = new Date(t)
+  const day = d.getUTCDay() // 0=Sun ... 6=Sat
+  const diffToMonday = (day + 6) % 7
+  const weekStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diffToMonday, 0, 0, 0, 0)
+  return weekStart
+}
+
 function BarChart({
   title,
   dates,
@@ -241,22 +250,25 @@ function BarChart({
   const minX = dates[0]
   const maxX = dates[dates.length - 1]
   const maxY = Math.max(1, ...values)
-
-  const x = (t: number) =>
-    padL + ((t - minX) / Math.max(1, maxX - minX)) * (width - padL - padR)
   const y = (v: number) => padT + (1 - v / maxY) * (height - padT - padB)
 
   const points = dates.map((t, i) => ({
     t,
     v: values[i],
-    x: x(t),
     y: y(values[i]),
   }))
 
-  const tickVals = [0, 0.33, 0.66, 1].map(f => f * maxY)
-
   const barAreaWidth = width - padL - padR
-  const barWidth = Math.max(6, barAreaWidth / Math.max(points.length * 1.5, 4))
+  const spacing = barAreaWidth / Math.max(points.length, 1)
+  const barWidth = Math.min(34, Math.max(8, spacing * 0.72))
+
+  // Assign x based on index so bars are evenly spaced visually.
+  const pointsWithX = points.map((p, i) => ({
+    ...p,
+    x: padL + (i + 0.5) * spacing,
+  }))
+
+  const tickVals = [0, 0.33, 0.66, 1].map(f => f * maxY)
 
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
 
@@ -272,18 +284,8 @@ function BarChart({
         onMouseMove={e => {
           const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
           const px = ((e.clientX - rect.left) / rect.width) * width
-          const ratio = (px - padL) / Math.max(1, width - padL - padR)
-          const tApprox = minX + ratio * (maxX - minX)
-          let bestIdx = 0
-          let bestDist = Infinity
-          points.forEach((p, i) => {
-            const d = Math.abs(p.t - tApprox)
-            if (d < bestDist) {
-              bestDist = d
-              bestIdx = i
-            }
-          })
-          setHoverIdx(bestIdx)
+          const rawIdx = Math.floor((px - padL) / Math.max(1, spacing))
+          setHoverIdx(Math.max(0, Math.min(pointsWithX.length - 1, rawIdx)))
         }}
       >
         {/* y grid */}
@@ -310,11 +312,9 @@ function BarChart({
         ))}
 
         {/* bars */}
-        {points.map((p, i) => {
-          const xCenter = p.x
-          const bw = barWidth
-          const xLeft = xCenter - bw / 2
-          const yTop = y(p.v)
+        {pointsWithX.map((p, i) => {
+          const xLeft = p.x - barWidth / 2
+          const yTop = p.y
           const h = height - padB - yTop
           const isHover = hoverIdx === i
           return (
@@ -322,7 +322,7 @@ function BarChart({
               key={p.t}
               x={xLeft}
               y={yTop}
-              width={bw}
+              width={barWidth}
               height={h}
               rx={2}
               fill="color-mix(in_srgb,var(--wt-accent)_70%,white)"
@@ -352,19 +352,19 @@ function BarChart({
         </text>
 
         {/* hover marker */}
-        {hoverIdx != null && points[hoverIdx] && (
+        {hoverIdx != null && pointsWithX[hoverIdx] && (
           <>
             <line
-              x1={points[hoverIdx].x}
-              x2={points[hoverIdx].x}
+              x1={pointsWithX[hoverIdx].x}
+              x2={pointsWithX[hoverIdx].x}
               y1={padT}
               y2={height - padB}
               stroke="color-mix(in_srgb,var(--wt-accent)_60%,transparent)"
               strokeWidth="1"
             />
             <circle
-              cx={points[hoverIdx].x}
-              cy={points[hoverIdx].y}
+              cx={pointsWithX[hoverIdx].x}
+              cy={pointsWithX[hoverIdx].y}
               r={3}
               fill="var(--wt-accent)"
             />
@@ -372,13 +372,13 @@ function BarChart({
         )}
       </svg>
 
-      {hoverIdx != null && points[hoverIdx] && (
+      {hoverIdx != null && pointsWithX[hoverIdx] && (
         <div className="mt-2 text-xs text-[var(--wt-text-2)]">
           <span className="text-[var(--wt-text)] font-semibold">
-            {formatShortDateUTC(points[hoverIdx].t)}
+            {formatShortDateUTC(pointsWithX[hoverIdx].t)}
           </span>
           <span className="ml-3">
-            {formatMoney(currency, points[hoverIdx].v)} total
+            {formatMoney(currency, pointsWithX[hoverIdx].v)} total
           </span>
         </div>
       )}
@@ -529,7 +529,8 @@ export function DonorsContributionsPage() {
   const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false)
   const [topDonorsType, setTopDonorsType] = useState<'all' | DonationType>('Monetary')
   const [allocationTime, setAllocationTime] = useState<TimeRange>('all')
-  const [overviewTime, setOverviewTime] = useState<TimeRange>('all')
+  // Default to the smallest range we show on this card.
+  const [overviewTime, setOverviewTime] = useState<TimeRange>('1m')
 
   const [donorDetailKey, setDonorDetailKey] = useState<string | null>(null)
   const [detailRow, setDetailRow] = useState<DonationWithSupporter | null>(null)
@@ -636,7 +637,7 @@ export function DonorsContributionsPage() {
 
   const donationOverview = useMemo(() => {
     const rows = rawRows ?? []
-    const totalsByDay = new Map<number, number>()
+    const totalsByWeek = new Map<number, number>()
     let overall = 0
 
     for (const r of rows) {
@@ -657,12 +658,12 @@ export function DonorsContributionsPage() {
       if (fx.converted == null) continue
 
       overall += fx.converted
-      const dayKey = t
-      totalsByDay.set(dayKey, (totalsByDay.get(dayKey) ?? 0) + fx.converted)
+      const weekKey = startOfWeekUTC(t)
+      totalsByWeek.set(weekKey, (totalsByWeek.get(weekKey) ?? 0) + fx.converted)
     }
 
-    const dates = [...totalsByDay.keys()].sort((a, b) => a - b)
-    const values = dates.map(d => totalsByDay.get(d) ?? 0)
+    const dates = [...totalsByWeek.keys()].sort((a, b) => a - b)
+    const values = dates.map(d => totalsByWeek.get(d) ?? 0)
 
     return { overall, dates, values }
   }, [rawRows, currency, overviewTime])
@@ -857,8 +858,6 @@ export function DonorsContributionsPage() {
                 <option value="1y">Last Year</option>
                 <option value="6m">Last 6 Months</option>
                 <option value="1m">Last Month</option>
-                <option value="2w">Last 2 Weeks</option>
-                <option value="1w">Last Week</option>
               </select>
             </label>
             <div className="flex items-baseline gap-3">
