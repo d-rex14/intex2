@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { useMemo, useState } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   Bell,
@@ -12,47 +12,51 @@ import {
   Menu,
   Users,
   X,
-} from 'lucide-react'
-import { RequirePortalAccess } from '../components/RequirePortalAccess'
-import { useAuth } from '../context/AuthContext'
-import { canAccessNavPath } from '../lib/roles'
-import { isSupabaseConfigured } from '../lib/supabase'
-import watchtowerLogo from '../assets/branding/watchtower-logo-transparent.png'
+} from "lucide-react";
+import { RequirePortalAccess } from "../components/RequirePortalAccess";
+import { useAuth } from "../context/AuthContext";
+import { canAccessNavPath } from "../lib/roles";
+import { isSupabaseConfigured } from "../lib/supabase";
+import watchtowerLogo from "../assets/branding/watchtower-logo-transparent.png";
 
 const navItems = [
-  { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/admin/donors', label: 'Donors & Contributions', icon: Users },
-  { to: '/admin/caseload', label: 'Caseload Inventory', icon: FolderOpen },
-  { to: '/admin/process-recordings', label: 'Process Recordings', icon: FileText },
-  { to: '/admin/visitations', label: 'Visitations & Conferences', icon: Home },
-  { to: '/admin/reports', label: 'Reports & Analytics', icon: BarChart3 },
-]
+  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/admin/donors", label: "Donors & Contributions", icon: Users },
+  { to: "/admin/caseload", label: "Caseload Inventory", icon: FolderOpen },
+  {
+    to: "/admin/process-recordings",
+    label: "Process Recordings",
+    icon: FileText,
+  },
+  { to: "/admin/visitations", label: "Visitations & Conferences", icon: Home },
+  { to: "/admin/reports", label: "Reports & Analytics", icon: BarChart3 },
+];
 
 export function AdminLayout() {
-  const { user, role, signOut, effectiveRoleIds, rolesLoading } = useAuth()
-  const navigate = useNavigate()
-  const [collapsed, setCollapsed] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const { user, role, signOut, effectiveRoleIds, rolesLoading } = useAuth();
+  const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const visibleNavItems = useMemo(() => {
-    return navItems.filter(item => {
+    return navItems.filter((item) => {
       if (isSupabaseConfigured && rolesLoading) {
-        return item.to === '/admin'
+        return item.to === "/admin";
       }
-      return canAccessNavPath(effectiveRoleIds, item.to)
-    })
-  }, [effectiveRoleIds, rolesLoading])
+      return canAccessNavPath(effectiveRoleIds, item.to);
+    });
+  }, [effectiveRoleIds, rolesLoading]);
 
   const handleSignOut = async () => {
-    await signOut()
-    navigate('/')
-  }
+    await signOut();
+    navigate("/");
+  };
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
     <div className="flex h-full flex-col">
       <div
         className={`flex h-20 items-center border-b border-[var(--wt-border)] px-4 ${
-          collapsed && !mobile ? 'justify-center' : 'gap-3'
+          collapsed && !mobile ? "justify-center" : "gap-3"
         }`}
       >
         <img
@@ -62,14 +66,18 @@ export function AdminLayout() {
         />
         {(!collapsed || mobile) && (
           <div>
-            <span className="font-display text-sm font-bold text-[var(--wt-text)]">Portal</span>
-            <p className="text-[10px] text-[var(--wt-text-2)] uppercase tracking-widest">Staff Portal</p>
+            <span className="font-display text-sm font-bold text-[var(--wt-text)]">
+              Portal
+            </span>
+            <p className="text-[10px] text-[var(--wt-text-2)] uppercase tracking-widest">
+              Staff Portal
+            </p>
           </div>
         )}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-2">
-        {visibleNavItems.map(item => (
+        {visibleNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -78,9 +86,9 @@ export function AdminLayout() {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-3 py-2.5 mb-1 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-text)] border border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]'
-                  : 'text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)]'
-              } ${collapsed && !mobile ? 'justify-center' : ''}`
+                  ? "bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-text)] border border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]"
+                  : "text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)]"
+              } ${collapsed && !mobile ? "justify-center" : ""}`
             }
             title={collapsed && !mobile ? item.label : undefined}
           >
@@ -93,14 +101,18 @@ export function AdminLayout() {
       <div className="border-t border-[var(--wt-border)] p-3">
         {(!collapsed || mobile) && (
           <div className="mb-2 px-2 py-1.5 rounded-lg bg-[var(--wt-surface)] border border-[var(--wt-border)]">
-            <p className="text-xs font-medium text-[var(--wt-text)] truncate">{user?.email}</p>
-            <p className="text-[10px] uppercase tracking-widest text-[var(--wt-accent)] font-medium">{role}</p>
+            <p className="text-xs font-medium text-[var(--wt-text)] truncate">
+              {user?.email}
+            </p>
+            <p className="text-[10px] uppercase tracking-widest text-[var(--wt-accent)] font-medium">
+              {role}
+            </p>
           </div>
         )}
         <button
           onClick={handleSignOut}
           className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,#dc2626_12%,transparent)] hover:text-[#dc2626] transition-colors ${
-            collapsed && !mobile ? 'justify-center' : ''
+            collapsed && !mobile ? "justify-center" : ""
           }`}
         >
           <LogOut size={16} />
@@ -108,13 +120,13 @@ export function AdminLayout() {
         </button>
       </div>
     </div>
-  )
+  );
 
   return (
     <div className="min-h-screen bg-[var(--wt-bg)] text-[var(--wt-text)] flex">
       <aside
         className={`hidden md:flex flex-col border-r border-[var(--wt-border)] bg-[var(--wt-surface)] transition-all duration-300 ${
-          collapsed ? 'w-16' : 'w-64'
+          collapsed ? "w-16" : "w-64"
         }`}
       >
         <SidebarContent />
@@ -122,7 +134,10 @@ export function AdminLayout() {
 
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setMobileOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setMobileOpen(false)}
+          />
           <aside className="relative w-72 bg-[var(--wt-surface)] border-r border-[var(--wt-border)] flex flex-col z-10">
             <button
               className="absolute top-4 right-4 text-[var(--wt-text-2)] hover:text-[var(--wt-text)]"
@@ -139,10 +154,13 @@ export function AdminLayout() {
         <header className="sticky top-0 z-30 flex h-16 items-center border-b border-[var(--wt-border)] bg-[color-mix(in_srgb,var(--wt-bg)_90%,transparent)] backdrop-blur-md px-4 gap-3">
           <button
             className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors"
-            onClick={() => setCollapsed(c => !c)}
+            onClick={() => setCollapsed((c) => !c)}
             aria-label="Toggle sidebar"
           >
-            <ChevronLeft size={18} className={`transition-transform ${collapsed ? 'rotate-180' : ''}`} />
+            <ChevronLeft
+              size={18}
+              className={`transition-transform ${collapsed ? "rotate-180" : ""}`}
+            />
           </button>
 
           <button
@@ -176,6 +194,5 @@ export function AdminLayout() {
         </main>
       </div>
     </div>
-  )
+  );
 }
-
