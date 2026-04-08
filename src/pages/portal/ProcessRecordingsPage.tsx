@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
@@ -84,6 +84,8 @@ export function ProcessRecordingsPage() {
 
   const [residentFilter, setResidentFilter] = useState<string>('all')
   const [dateOrder, setDateOrder] = useState<'newest' | 'oldest'>('newest')
+  const [pageSize, setPageSize] = useState<number>(25)
+  const [page, setPage] = useState<number>(1)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [selectedRecordingId, setSelectedRecordingId] = useState<number | null>(null)
@@ -124,10 +126,23 @@ export function ProcessRecordingsPage() {
     return rows
   }, [recordings, residentFilter, dateOrder])
 
+  const totalPages = Math.max(1, Math.ceil(filteredHistory.length / pageSize))
+  const pagedHistory = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return filteredHistory.slice(start, start + pageSize)
+  }, [filteredHistory, page, pageSize])
+  const rangeFrom = filteredHistory.length === 0 ? 0 : (page - 1) * pageSize + 1
+  const rangeTo = Math.min(page * pageSize, filteredHistory.length)
+
   const selectedRecording = useMemo(
     () => filteredHistory.find(r => r.recording_id === selectedRecordingId) ?? null,
     [filteredHistory, selectedRecordingId],
   )
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  const resetToFirstPage = () => setPage(1)
 
   const createRecording = async () => {
     if (!supabase) return
@@ -335,7 +350,10 @@ export function ProcessRecordingsPage() {
               <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Resident</span>
               <select
                 value={residentFilter}
-                onChange={e => setResidentFilter(e.target.value)}
+                onChange={e => {
+                  setResidentFilter(e.target.value)
+                  resetToFirstPage()
+                }}
                 className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)]"
               >
                 <option value="all">All residents</option>
@@ -350,11 +368,31 @@ export function ProcessRecordingsPage() {
               <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Date order</span>
               <select
                 value={dateOrder}
-                onChange={e => setDateOrder(e.target.value as 'newest' | 'oldest')}
+                onChange={e => {
+                  setDateOrder(e.target.value as 'newest' | 'oldest')
+                  resetToFirstPage()
+                }}
                 className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)]"
               >
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 min-w-[8rem]">
+              <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Rows per page</span>
+              <select
+                value={pageSize}
+                onChange={e => {
+                  setPageSize(Number(e.target.value))
+                  resetToFirstPage()
+                }}
+                className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)]"
+              >
+                {[10, 25, 50, 100].map(n => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
               </select>
             </label>
           </div>
@@ -381,14 +419,14 @@ export function ProcessRecordingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredHistory.length === 0 ? (
+                {pagedHistory.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-[var(--wt-text-2)]">
                       No process recordings found for this selection.
                     </td>
                   </tr>
                 ) : (
-                  filteredHistory.map(r => (
+                  pagedHistory.map(r => (
                     <tr key={r.recording_id} className="border-b border-[var(--wt-border)] last:border-0">
                       <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{toDateOnly(r.session_date) || '—'}</td>
                       <td className="px-4 py-3 text-[var(--wt-text)]">
@@ -413,6 +451,50 @@ export function ProcessRecordingsPage() {
             </table>
           )}
         </div>
+        {!loading && !error && filteredHistory.length > 0 && (
+          <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm">
+            <p className="text-[var(--wt-text-2)]">
+              Showing {rangeFrom}-{rangeTo} of {filteredHistory.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage(1)}
+                className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs disabled:opacity-40"
+              >
+                First
+              </button>
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-[var(--wt-text-2)] tabular-nums text-xs px-1">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs disabled:opacity-40"
+              >
+                Next
+              </button>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage(totalPages)}
+                className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs disabled:opacity-40"
+              >
+                Last
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {selectedRecording && (
