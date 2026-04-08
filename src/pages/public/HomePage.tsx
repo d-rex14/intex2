@@ -81,7 +81,7 @@ export function HomePage() {
                 Safety. Healing. Justice. Empowerment.
               </h1>
               <p className="mt-4 text-[var(--wt-text-2)] max-w-xl">
-                Click below to visit our Donations page for all ways to give.
+                Your donation changes the course of a child's life. Click below to contribute.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
