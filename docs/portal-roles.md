@@ -25,6 +25,7 @@ Privilege checks in app code and Edge Functions should use **`user_id` + `user_r
 
 ## Site Users (admin)
 
+- The browser sends **`Authorization: Bearer <access_token>`** (the signed-in user’s JWT from `supabase.auth.getSession()`), not the anon key. The Edge Function validates that token with **`auth.getUser(jwt)`** on the service-role client; it does **not** use `SUPABASE_ANON_KEY` to resolve the caller.
 - The `admin-site-users` Edge Function requires a row in `user_roles` with **`role_id = 4`** for the caller.
 - Display name is stored in auth **`user_metadata`** (the function reads/writes `full_name`).
 - **Remove role**: deletes all `user_roles` rows for that user; the auth account remains.

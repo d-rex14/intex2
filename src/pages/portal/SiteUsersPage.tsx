@@ -28,11 +28,25 @@ async function invokeAdmin<T = unknown>(
   if (!supabase) {
     return { ok: false, error: 'Supabase is not configured.' }
   }
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession()
+  const accessToken = session?.access_token
+  if (!accessToken) {
+    return {
+      ok: false,
+      error: sessionError?.message ?? 'You must be signed in to manage site users.',
+    }
+  }
   let data: unknown
   let error: unknown
   try {
     const res = await supabase.functions.invoke('admin-site-users', {
       body: { action, ...payload },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     })
     data = res.data
     error = res.error
