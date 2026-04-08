@@ -185,10 +185,12 @@ function DonutChart({
   title,
   data,
   valueCurrency,
+  centerLabel,
 }: {
   title: string
   data: { label: string; value: number; color: string }[]
   valueCurrency: string
+  centerLabel: string
 }) {
   const total = data.reduce((sum, d) => sum + d.value, 0)
   const size = 220
@@ -217,6 +219,7 @@ function DonutChart({
     x: number
     y: number
   } | null>(null)
+  const hoveredLabel = hover?.label ?? null
 
   return (
     <div className="relative">
@@ -249,6 +252,10 @@ function DonutChart({
                 strokeDasharray={`${seg.len} ${c - seg.len}`}
                 strokeDashoffset={-seg.offset}
                 strokeLinecap="butt"
+                style={{
+                  filter: hoveredLabel === seg.label ? `drop-shadow(0 0 8px ${seg.color})` : undefined,
+                  transition: 'filter 120ms ease-out',
+                }}
                 onMouseMove={e => {
                   const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect()
                   setHover({
@@ -265,21 +272,21 @@ function DonutChart({
           </g>
           <text
             x={size / 2}
-            y={size / 2 - 6}
+            y={size / 2 - 2}
             textAnchor="middle"
             className="fill-[var(--wt-text)]"
-            style={{ fontSize: 18, fontWeight: 700 }}
+            style={{ fontSize: 16, fontWeight: 750 }}
           >
-            {total > 0 ? '100%' : '—'}
+            {centerLabel || '—'}
           </text>
           <text
             x={size / 2}
-            y={size / 2 + 16}
+            y={size / 2 + 18}
             textAnchor="middle"
             className="fill-[var(--wt-text-2)]"
             style={{ fontSize: 10, letterSpacing: '0.18em' }}
           >
-            FUNDS
+            ALLOCATED
           </text>
         </svg>
       </div>
@@ -375,6 +382,10 @@ export function DonorsContributionsPage() {
       color: CHART_COLORS[i % CHART_COLORS.length],
     }))
   }, [allocationRows, allocationTime, currency])
+
+  const allocatedTotal = useMemo(() => {
+    return resourcesFunded.reduce((sum, d) => sum + d.value, 0)
+  }, [resourcesFunded])
 
   const topDonors = useMemo(() => {
     const rows = rawRows ?? []
@@ -490,20 +501,6 @@ export function DonorsContributionsPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold text-[var(--wt-text)]">Donations and Allocations</h1>
-          <p className="text-sm text-[var(--wt-text-2)] mt-1 max-w-2xl">
-            {donationTypeFilter === 'all' ? (
-              <>
-                Showing <strong className="text-[var(--wt-text)]">all donation types</strong>, ordered by date (
-                {sortByDate === 'newest' ? 'newest first' : 'oldest first'}). Open <strong className="text-[var(--wt-text)]">Details</strong>{' '}
-                for full information about a gift.
-              </>
-            ) : (
-              <>
-                Filtered to <strong className="text-[var(--wt-text)]">{donationTypeFilter}</strong>; sorted by date (
-                {sortByDate === 'newest' ? 'newest first' : 'oldest first'}).
-              </>
-            )}
-          </p>
         </div>
         <div className="relative flex items-center gap-2">
           <button
@@ -563,9 +560,6 @@ export function DonorsContributionsPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Top Donors</h2>
-            <p className="text-xs text-[var(--wt-text-2)] mt-1">
-              Top 5 donors by selected donation type (converted using static rates).
-            </p>
             </div>
           </div>
 
@@ -585,9 +579,6 @@ export function DonorsContributionsPage() {
                 ))}
               </select>
             </label>
-            <p className="text-xs text-[var(--wt-text-2)]">
-              Totals shown in <span className="text-[var(--wt-text)] font-semibold">{currency}</span>.
-            </p>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)]">
@@ -651,9 +642,6 @@ export function DonorsContributionsPage() {
         <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-5">
           <div>
             <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Resources Funded</h2>
-            <p className="text-xs text-[var(--wt-text-2)] mt-1">
-              Breakdown of allocated funds by program area.
-            </p>
           </div>
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 min-w-[12rem]">
@@ -671,9 +659,6 @@ export function DonorsContributionsPage() {
                 <option value="1w">Last Week</option>
               </select>
             </label>
-            <p className="text-xs text-[var(--wt-text-2)]">
-              Totals shown in <span className="text-[var(--wt-text)] font-semibold">{currency}</span>.
-            </p>
           </div>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 items-center">
             <div className="flex justify-center md:justify-start">
@@ -687,35 +672,14 @@ export function DonorsContributionsPage() {
               ) : resourcesFunded.length === 0 ? (
                 <p className="text-sm text-[var(--wt-text-2)]">No allocation data found yet.</p>
               ) : (
-                <DonutChart title="Resources Funded" data={resourcesFunded} valueCurrency={currency} />
+                <DonutChart
+                  title="Resources Funded"
+                  data={resourcesFunded}
+                  valueCurrency={currency}
+                  centerLabel={allocatedTotal > 0 ? formatMoney(currency, allocatedTotal) : '—'}
+                />
               )}
             </div>
-
-            {!allocationsLoading && !allocationsError && resourcesFunded.length > 0 && (
-              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4">
-                <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Legend</div>
-                <ul className="space-y-2">
-                  {resourcesFunded.map(d => (
-                    <li key={d.label} className="flex items-center gap-2 text-sm">
-                      <span
-                        className="inline-block w-3 h-3 rounded-sm border border-[var(--wt-border)]"
-                        style={{ backgroundColor: d.color }}
-                        title={`${d.label}: ${formatMoney(currency, d.value)}`}
-                      />
-                      <span className="text-[var(--wt-text)] truncate" title={d.label}>
-                        {d.label}
-                      </span>
-                      <span className="ml-auto text-[var(--wt-text-2)] tabular-nums" title={formatMoney(currency, d.value)}>
-                        {formatMoney(currency, d.value)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-3 text-xs text-[var(--wt-text-2)]">
-                  Hover a segment for details.
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>

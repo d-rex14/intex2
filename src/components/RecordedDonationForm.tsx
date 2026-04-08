@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { campaignOptionsForSelect } from '../lib/fundraisingCampaigns'
+import { BASE_CURRENCY, convertCurrency, SUPPORTED_CURRENCIES } from '../lib/fxRates'
 import { supabase } from '../lib/supabase'
 
 type DonationType = 'Monetary' | 'InKind' | 'Time' | 'Skills' | 'SocialMedia'
@@ -19,6 +20,7 @@ export function RecordedDonationForm() {
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState(user?.email ?? '')
   const [amount, setAmount] = useState('')
+  const [currency, setCurrency] = useState<string>(BASE_CURRENCY)
   const [donationType, setDonationType] = useState<DonationType>('Monetary')
   const [notes, setNotes] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
@@ -55,13 +57,28 @@ export function RecordedDonationForm() {
       return
     }
 
+    // RPC stores donations in PHP (see SUPABASE_DONATIONS_SETUP.md); convert from selected currency.
+    const fx = convertCurrency(parsed, currency, BASE_CURRENCY)
+    if (fx.converted == null) {
+      setError(`Unsupported currency conversion for ${currency}.`)
+      setLoading(false)
+      return
+    }
+    const noteSuffix =
+      currency.toUpperCase() === BASE_CURRENCY
+        ? ''
+        : `\n\nEntered as ${currency.toUpperCase()} ${parsed.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })} (converted to ${BASE_CURRENCY} using static rate)`
+
     const { data, error: rpcError } = await supabaseClient.rpc('submit_public_demo_donation', {
       p_first_name: firstName.trim(),
       p_last_name: lastName.trim(),
       p_email: email.trim(),
-      p_amount: parsed,
+      p_amount: fx.converted,
       p_donation_type: donationType,
-      p_notes: notes.trim() || null,
+      p_notes: (notes.trim() || '') + noteSuffix || null,
       p_is_recurring: isRecurring,
       p_campaign_name: campaignName.trim() || null,
       p_auth_user_id: session?.user?.id ?? null,
@@ -132,7 +149,7 @@ export function RecordedDonationForm() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)] mb-1">
-            Amount (PHP, demo)
+            Amount (demo)
           </label>
           <input
             value={amount}
@@ -144,7 +161,23 @@ export function RecordedDonationForm() {
           />
         </div>
         <div>
-          <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Type</label>
+          <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Currency</label>
+          <select
+            value={currency}
+            onChange={e => setCurrency(e.target.value)}
+            className="w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]"
+          >
+            {SUPPORTED_CURRENCIES.map(c => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Type</label>
           <select
             value={donationType}
             onChange={e => setDonationType(e.target.value as DonationType)}
@@ -156,7 +189,6 @@ export function RecordedDonationForm() {
               </option>
             ))}
           </select>
-        </div>
       </div>
 
       <div>
