@@ -6,10 +6,11 @@ import {
   ChevronLeft,
   FileText,
   FolderOpen,
-  Home,
+  Heart,
   LayoutDashboard,
   LogOut,
   Menu,
+  UserCog,
   Users,
   X,
 } from "lucide-react";
@@ -20,17 +21,14 @@ import { isSupabaseConfigured } from "../lib/supabase";
 import watchtowerLogo from "../assets/branding/watchtower-logo-transparent.png";
 
 const navItems = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/admin/donors", label: "Donors & Contributions", icon: Users },
-  { to: "/admin/caseload", label: "Caseload Inventory", icon: FolderOpen },
-  {
-    to: "/admin/process-recordings",
-    label: "Process Recordings",
-    icon: FileText,
-  },
-  { to: "/admin/visitations", label: "Visitations & Conferences", icon: Home },
-  { to: "/admin/reports", label: "Reports & Analytics", icon: BarChart3 },
-];
+  { to: '/portal', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/portal/donors', label: 'Donors & Contributions', icon: Users },
+  { to: '/portal/caseload', label: 'Caseload Inventory', icon: FolderOpen },
+  { to: '/portal/process-recordings', label: 'Process Recordings', icon: FileText },
+  { to: '/portal/reports', label: 'Reports & Analytics', icon: BarChart3 },
+  { to: '/portal/your-donations', label: 'Your Donations', icon: Heart },
+  { to: '/portal/site-users', label: 'Site Users', icon: UserCog },
+]
 
 export function AdminLayout() {
   const { user, role, signOut, effectiveRoleIds, rolesLoading } = useAuth();
@@ -41,7 +39,7 @@ export function AdminLayout() {
   const visibleNavItems = useMemo(() => {
     return navItems.filter((item) => {
       if (isSupabaseConfigured && rolesLoading) {
-        return item.to === "/admin";
+        return item.to === '/portal';
       }
       return canAccessNavPath(effectiveRoleIds, item.to);
     });
