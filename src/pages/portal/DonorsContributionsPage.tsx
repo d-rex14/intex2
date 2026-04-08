@@ -206,6 +206,171 @@ function parseISODateToUTC(dateStr: string | null | undefined): number | null {
   return Number.isFinite(t) ? t : null
 }
 
+function formatShortDateUTC(t: number): string {
+  const d = new Date(t)
+  const yyyy = d.getUTCFullYear()
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function LineChart({
+  title,
+  dates,
+  values,
+  currency,
+}: {
+  title: string
+  dates: number[]
+  values: number[]
+  currency: string
+}) {
+  const width = 520
+  const height = 200
+  const padL = 44
+  const padR = 10
+  const padT = 18
+  const padB = 30
+
+  if (dates.length === 0 || values.length === 0) {
+    return <p className="text-sm text-[var(--wt-text-2)] py-6 text-center">No donation data yet.</p>
+  }
+
+  const minX = dates[0]
+  const maxX = dates[dates.length - 1]
+  const maxY = Math.max(1, ...values)
+
+  const x = (t: number) =>
+    padL + ((t - minX) / Math.max(1, maxX - minX)) * (width - padL - padR)
+  const y = (v: number) => padT + (1 - v / maxY) * (height - padT - padB)
+
+  const points = dates.map((t, i) => ({
+    t,
+    v: values[i],
+    x: x(t),
+    y: y(values[i]),
+  }))
+
+  const pathD = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+    .join(' ')
+
+  const tickVals = [0, 0.33, 0.66, 1].map(f => f * maxY)
+
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null)
+
+  return (
+    <div className="relative w-full">
+      <svg
+        width="100%"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={title}
+        className="block"
+        onMouseLeave={() => setHoverIdx(null)}
+        onMouseMove={e => {
+          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
+          const px = ((e.clientX - rect.left) / rect.width) * width
+          const ratio = (px - padL) / Math.max(1, width - padL - padR)
+          const tApprox = minX + ratio * (maxX - minX)
+          let bestIdx = 0
+          let bestDist = Infinity
+          points.forEach((p, i) => {
+            const d = Math.abs(p.t - tApprox)
+            if (d < bestDist) {
+              bestDist = d
+              bestIdx = i
+            }
+          })
+          setHoverIdx(bestIdx)
+        }}
+      >
+        {/* y grid */}
+        {tickVals.map((tv, i) => (
+          <g key={i}>
+            <line
+              x1={padL}
+              x2={width - padR}
+              y1={y(tv)}
+              y2={y(tv)}
+              stroke="color-mix(in_srgb,var(--wt-border)_55%,transparent)"
+              strokeWidth="1"
+            />
+            <text
+              x={padL - 8}
+              y={y(tv) + 4}
+              textAnchor="end"
+              className="fill-[var(--wt-text-2)]"
+              style={{ fontSize: 10 }}
+            >
+              {formatMoney(currency, tv).replace(`${currency} `, '')}
+            </text>
+          </g>
+        ))}
+
+        {/* line */}
+        <path
+          d={pathD}
+          fill="none"
+          stroke="color-mix(in_srgb,var(--wt-accent)_80%,white)"
+          strokeWidth="2.25"
+        />
+
+        {/* x labels (start / end) */}
+        <text
+          x={padL}
+          y={height - 10}
+          textAnchor="start"
+          className="fill-[var(--wt-text-2)]"
+          style={{ fontSize: 10 }}
+        >
+          {formatShortDateUTC(minX)}
+        </text>
+        <text
+          x={width - padR}
+          y={height - 10}
+          textAnchor="end"
+          className="fill-[var(--wt-text-2)]"
+          style={{ fontSize: 10 }}
+        >
+          {formatShortDateUTC(maxX)}
+        </text>
+
+        {/* hover marker */}
+        {hoverIdx != null && points[hoverIdx] && (
+          <>
+            <line
+              x1={points[hoverIdx].x}
+              x2={points[hoverIdx].x}
+              y1={padT}
+              y2={height - padB}
+              stroke="color-mix(in_srgb,var(--wt-accent)_60%,transparent)"
+              strokeWidth="1"
+            />
+            <circle
+              cx={points[hoverIdx].x}
+              cy={points[hoverIdx].y}
+              r={3}
+              fill="var(--wt-accent)"
+            />
+          </>
+        )}
+      </svg>
+
+      {hoverIdx != null && points[hoverIdx] && (
+        <div className="mt-2 text-xs text-[var(--wt-text-2)]">
+          <span className="text-[var(--wt-text)] font-semibold">
+            {formatShortDateUTC(points[hoverIdx].t)}
+          </span>
+          <span className="ml-3">
+            {formatMoney(currency, points[hoverIdx].v)} total
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function DonutChart({
   title,
   data,
@@ -455,6 +620,36 @@ export function DonorsContributionsPage() {
     return sorted.slice(0, 10)
   }, [rawRows, topDonorsType, currency])
 
+  const donationOverview = useMemo(() => {
+    const rows = rawRows ?? []
+    const totalsByDay = new Map<number, number>()
+    let overall = 0
+
+    for (const r of rows) {
+      if (r.donation_type !== 'Monetary') continue
+      const val = r.amount ?? r.estimated_value
+      if (val == null) continue
+      const n = Number(val)
+      if (!Number.isFinite(n) || n <= 0) continue
+
+      const t = parseISODateToUTC(r.donation_date)
+      if (t == null) continue
+
+      const fromCur = (r.currency_code ?? BASE_CURRENCY).trim() || BASE_CURRENCY
+      const fx = convertCurrency(n, fromCur, currency)
+      if (fx.converted == null) continue
+
+      overall += fx.converted
+      const dayKey = t
+      totalsByDay.set(dayKey, (totalsByDay.get(dayKey) ?? 0) + fx.converted)
+    }
+
+    const dates = [...totalsByDay.keys()].sort((a, b) => a - b)
+    const values = dates.map(d => totalsByDay.get(d) ?? 0)
+
+    return { overall, dates, values }
+  }, [rawRows, currency])
+
   const donorDetail = useMemo(() => {
     if (!donorDetailKey) return null
     const row = topDonors.find(d => d.key === donorDetailKey)
@@ -624,6 +819,33 @@ export function DonorsContributionsPage() {
       </div>
 
       {formError && <p className="text-sm text-[#dc2626]">{formError}</p>}
+
+      <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-5">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+          <div>
+            <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Donation Overview</h2>
+            <p className="text-sm text-[var(--wt-text-2)] mt-1">
+              Sum of monetary donations and trend over time in {currency}.
+            </p>
+          </div>
+          <div className="flex items-baseline gap-3">
+            <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">
+              Sum of monetary donations
+            </span>
+            <span className="text-xl font-semibold text-[var(--wt-text)] tabular-nums">
+              {formatMoney(currency, donationOverview.overall)}
+            </span>
+          </div>
+        </div>
+        <div className="mt-2">
+          <LineChart
+            title="Donations over time"
+            dates={donationOverview.dates}
+            values={donationOverview.values}
+            currency={currency}
+          />
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-5">
