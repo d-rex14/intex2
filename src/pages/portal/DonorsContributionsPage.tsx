@@ -269,7 +269,8 @@ function BarChart({
     x: padL + (i + 0.5) * spacing,
   }))
 
-  const tickVals = [0, 0.33, 0.66, 1].map(f => f * maxY)
+  const actualMax = Math.max(0, ...values)
+  const maxLabel = actualMax > 0 ? actualMax : 0
 
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
 
@@ -289,28 +290,26 @@ function BarChart({
           setHoverIdx(Math.max(0, Math.min(pointsWithX.length - 1, rawIdx)))
         }}
       >
-        {/* y grid */}
-        {tickVals.map((tv, i) => (
-          <g key={i}>
-            <line
-              x1={padL}
-              x2={width - padR}
-              y1={y(tv)}
-              y2={y(tv)}
-              stroke="color-mix(in_srgb,var(--wt-border)_55%,transparent)"
-              strokeWidth="1"
-            />
-            <text
-              x={padL - 8}
-              y={y(tv) + 4}
-              textAnchor="end"
-              className="fill-[var(--wt-text-2)]"
-              style={{ fontSize: 10 }}
-            >
-              {formatMoney(currency, tv).replace(`${currency} `, '')}
-            </text>
-          </g>
-        ))}
+        {/* y grid/label: only render the maximum to avoid clutter */}
+        <g>
+          <line
+            x1={padL}
+            x2={width - padR}
+            y1={y(maxLabel)}
+            y2={y(maxLabel)}
+            stroke="color-mix(in_srgb,var(--wt-border)_55%,transparent)"
+            strokeWidth="1"
+          />
+          <text
+            x={padL - 8}
+            y={y(maxLabel) + 4}
+            textAnchor="end"
+            className="fill-[var(--wt-text-2)]"
+            style={{ fontSize: 10 }}
+          >
+            {formatMoney(currency, maxLabel).replace(`${currency} `, '')}
+          </text>
+        </g>
 
         {/* bars */}
         {pointsWithX.map((p, i) => {
