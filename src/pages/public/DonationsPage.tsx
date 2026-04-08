@@ -1,5 +1,4 @@
 import { ORG } from '../../content/org'
-import { GiveButterWidget } from '../../components/GiveButterWidget'
 import { RecordedDonationForm } from '../../components/RecordedDonationForm'
 
 export function DonationsPage() {
@@ -31,49 +30,6 @@ export function DonationsPage() {
 
       <div className="mt-12 max-w-xl mx-auto">
         <RecordedDonationForm />
-      </div>
-
-      <h2 className="mt-14 font-display text-2xl font-bold text-[var(--wt-text)] text-center">
-        Wheels of Hope: A van that changes lives
-      </h2>
-      <p className="mt-4 max-w-3xl mx-auto text-[var(--wt-text)] leading-relaxed text-center">
-        Every mile matters when a girl&apos;s safety and future are on the line. Our <em>Wheels of Hope</em> campaign supports the
-        purchase of a <strong>new van</strong> that does far more than provide transportation—it delivers{' '}
-        <strong>security, dignity, and connection</strong>. The vans bring girls to <strong>safety</strong>, shuttle them to{' '}
-        <strong>court hearings</strong> to seek justice, and take them to church and other community activities that help them
-        build trust with safe, caring people.
-      </p>
-
-      <div className="mt-10 max-w-xl mx-auto">
-        <GiveButterWidget />
-      </div>
-
-      <div className="mt-14 flex flex-wrap items-center justify-center gap-10">
-        <a href={ORG.venmo} target="_blank" rel="noopener noreferrer" className="block">
-          <img
-            src="https://www.lighthousesanctuary.org/wp-content/uploads/2025/11/Venmo-2-1-300x288.png"
-            alt="Donate with Venmo"
-            className="h-24 w-auto object-contain"
-          />
-        </a>
-        <a href={ORG.paypalMe} target="_blank" rel="noopener noreferrer" className="block">
-          <img
-            src="https://www.lighthousesanctuary.org/wp-content/uploads/2025/11/PayPal-300x272.png"
-            alt="Donate with PayPal"
-            className="h-20 w-auto object-contain"
-          />
-        </a>
-      </div>
-
-      <div className="mt-10 flex justify-center">
-        <a
-          href={ORG.paypalHosted}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-lg bg-[var(--wt-accent)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-        >
-          Donate with PayPal (hosted button)
-        </a>
       </div>
     </div>
   )
