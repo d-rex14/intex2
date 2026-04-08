@@ -1,4 +1,17 @@
-import { createClient } from "npm:@supabase/supabase-js@2.49.4"
+/**
+ * Browser callers: `getSession()`, then POST with JSON `body: { action: '…' }`, header
+ * `Authorization: Bearer <access_token>`, and (recommended) `X-Supabase-Access-Token: <same_jwt>`
+ * plus `apikey: <anon/publishable key>` so the gateway accepts the request.
+ *
+ * This Edge handler runs on Deno (not Node): use `Deno.env`, not `process.env`. It does not
+ * call `invoke` on itself. Identity is the incoming Bearer access JWT, validated with the
+ * service-role client via `auth.getUser(jwt)` — not `SUPABASE_ANON_KEY` / anon client here.
+ */
+import {
+  createClient,
+  type SupabaseClient,
+  type User,
+} from "npm:@supabase/supabase-js"
 
 type UserMetadata = Record<string, unknown>
 
@@ -20,7 +33,8 @@ function corsHeaders(req: Request): Record<string, string> {
   const allow = origin && (wildcard || allowed.includes(origin)) ? origin : wildcard ? "*" : allowed[0] ?? "*"
   return {
     "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-supabase-access-token",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   }
@@ -35,6 +49,44 @@ function json(
     status,
     headers: { ...corsHeaders(req), "Content-Type": "application/json" },
   })
+}
+
+/**
+ * User access JWT for this handler. Prefer `Authorization: Bearer …`; some deployments
+ * validate JWT at the edge but do not forward `Authorization` to the worker, so we also
+ * accept `X-Supabase-Access-Token` (raw JWT, no `Bearer ` prefix).
+ */
+function accessTokenFromRequest(req: Request): string | null {
+  const auth = (req.headers.get("Authorization") ?? "").trim()
+  const fromAuth = /^Bearer\s+(.+)$/i.exec(auth)?.[1]?.trim()
+  if (fromAuth) return fromAuth
+
+  const alt = (req.headers.get("X-Supabase-Access-Token") ?? "").trim()
+  if (alt) return alt
+
+  return null
+}
+
+/**
+ * Resolve the signed-in user from their **access JWT** using the service-role key.
+ * This validates the token server-side; it is not the anon role.
+ */
+async function userFromAuthenticatedJwt(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  accessToken: string,
+): Promise<{ user: User; admin: SupabaseClient } | { error: string }> {
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  const {
+    data: { user },
+    error,
+  } = await admin.auth.getUser(accessToken)
+  if (error || !user) {
+    return { error: "Invalid session" }
+  }
+  return { user, admin }
 }
 
 Deno.serve(async (req) => {
@@ -53,27 +105,19 @@ Deno.serve(async (req) => {
     return json(req, { error: "Server misconfiguration" }, 500)
   }
 
-  // Validate the caller using their access JWT only (no anon-key client).
-  // Requires Authorization: Bearer <access_token> from the signed-in browser session.
-  const rawAuth = (req.headers.get("Authorization") ?? "").trim()
-  const jwtMatch = /^Bearer\s+(.+)$/i.exec(rawAuth)
-  const accessToken = jwtMatch?.[1]?.trim() ?? ""
+  const accessToken = accessTokenFromRequest(req)
   if (!accessToken) {
-    return json(req, { error: "Missing Authorization: Bearer <access_token>" }, 401)
+    return json(req, {
+      error:
+        "Missing user JWT: send Authorization: Bearer <access_token> and/or X-Supabase-Access-Token",
+    }, 401)
   }
 
-  const adminClient = createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-
-  const {
-    data: { user },
-    error: userErr,
-  } = await adminClient.auth.getUser(accessToken)
-
-  if (userErr || !user) {
-    return json(req, { error: "Invalid session" }, 401)
+  const authResult = await userFromAuthenticatedJwt(supabaseUrl, serviceKey, accessToken)
+  if ("error" in authResult) {
+    return json(req, { error: authResult.error }, 401)
   }
+  const { user, admin: adminClient } = authResult
 
   // Resolve admin role ID by name so this function works even if role IDs differ by environment.
   const { data: adminRoleRow, error: adminRoleErr } = await adminClient

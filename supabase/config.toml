@@ -1,4 +1,7 @@
 # Local / deploy config. Link project: supabase link --project-ref <ref>
 
+# Gateway JWT check is redundant here and can 401 (e.g. asymmetric tokens) while the same
+# JWT is valid inside the worker. This function validates Bearer / X-Supabase-Access-Token
+# with the service client and enforces admin via user_roles.
 [functions.admin-site-users]
-verify_jwt = true
+verify_jwt = false

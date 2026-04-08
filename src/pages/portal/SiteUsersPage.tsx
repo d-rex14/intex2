@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FunctionsHttpError } from '@supabase/supabase-js'
 import { Copy, Pencil, ShieldOff, Trash2 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '../../lib/supabase'
 
@@ -32,24 +31,36 @@ async function invokeAdmin<T = unknown>(
     data: { session },
     error: sessionError,
   } = await supabase.auth.getSession()
-  const accessToken = session?.access_token
-  if (!accessToken) {
+
+  if (!session) {
     return {
       ok: false,
       error: sessionError?.message ?? 'You must be signed in to manage site users.',
     }
   }
-  let data: unknown
-  let error: unknown
+
+  const baseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '')
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  if (!baseUrl || !anonKey) {
+    return { ok: false, error: 'Supabase URL or anon key is not configured.' }
+  }
+
+  const token = session.access_token
+  let response: Response
   try {
-    const res = await supabase.functions.invoke('admin-site-users', {
-      body: { action, ...payload },
+    // Use fetch (not functions.invoke) so apikey + user JWT are always sent explicitly.
+    // Some gateways validate JWT but omit Authorization when invoking the worker; the function
+    // also accepts X-Supabase-Access-Token as a fallback.
+    response = await fetch(`${baseUrl}/functions/v1/admin-site-users`, {
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        apikey: anonKey,
+        Authorization: `Bearer ${token}`,
+        'X-Supabase-Access-Token': token,
       },
+      body: JSON.stringify({ action, ...payload }),
     })
-    data = res.data
-    error = res.error
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return {
@@ -60,20 +71,27 @@ async function invokeAdmin<T = unknown>(
     }
   }
 
-  if (error) {
-    if (error instanceof FunctionsHttpError) {
-      const status = error.context.status
-      try {
-        const j = (await error.context.json()) as { error?: string }
-        const msg = j.error ?? error.message
-        const withStatus = `[${status}] ${msg}`
-        return { ok: false, error: withStatus, forbidden: status === 403 }
-      } catch {
-        return { ok: false, error: `[${status}] ${error.message}`, forbidden: status === 403 }
-      }
+  const text = await response.text()
+  let data: unknown
+  try {
+    data = text ? (JSON.parse(text) as unknown) : null
+  } catch {
+    return {
+      ok: false,
+      error: text || `Unexpected response (${response.status})`,
     }
-    const fallback = error instanceof Error ? error.message : String(error)
-    return { ok: false, error: fallback }
+  }
+
+  if (!response.ok) {
+    const msg =
+      data && typeof data === 'object' && data !== null && 'error' in data
+        ? String((data as { error: string }).error)
+        : response.statusText
+    return {
+      ok: false,
+      error: `[${response.status}] ${msg}`,
+      forbidden: response.status === 403,
+    }
   }
 
   if (data && typeof data === 'object' && data !== null && 'error' in data) {
