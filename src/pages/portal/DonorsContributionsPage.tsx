@@ -188,7 +188,9 @@ const TYPE_COLORS: Record<string, string> = {
   SocialMedia: '#a78bfa',
 } as const
 
-function cutoffForRange(range: 'all' | '1y' | '6m' | '1m' | '2w' | '1w'): number | null {
+type TimeRange = 'all' | '1y' | '6m' | '1m' | '2w' | '1w'
+
+function cutoffForRange(range: TimeRange): number | null {
   if (range === 'all') return null
   const now = Date.now()
   const msDay = 24 * 60 * 60 * 1000
@@ -214,7 +216,7 @@ function formatShortDateUTC(t: number): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
-function LineChart({
+function BarChart({
   title,
   dates,
   values,
@@ -251,11 +253,10 @@ function LineChart({
     y: y(values[i]),
   }))
 
-  const pathD = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
-    .join(' ')
-
   const tickVals = [0, 0.33, 0.66, 1].map(f => f * maxY)
+
+  const barAreaWidth = width - padL - padR
+  const barWidth = Math.max(6, barAreaWidth / Math.max(points.length * 1.5, 4))
 
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
 
@@ -308,13 +309,27 @@ function LineChart({
           </g>
         ))}
 
-        {/* line */}
-        <path
-          d={pathD}
-          fill="none"
-          stroke="color-mix(in_srgb,var(--wt-accent)_80%,white)"
-          strokeWidth="2.25"
-        />
+        {/* bars */}
+        {points.map((p, i) => {
+          const xCenter = p.x
+          const bw = barWidth
+          const xLeft = xCenter - bw / 2
+          const yTop = y(p.v)
+          const h = height - padB - yTop
+          const isHover = hoverIdx === i
+          return (
+            <rect
+              key={p.t}
+              x={xLeft}
+              y={yTop}
+              width={bw}
+              height={h}
+              rx={2}
+              fill="color-mix(in_srgb,var(--wt-accent)_70%,white)"
+              opacity={isHover ? 1 : 0.85}
+            />
+          )
+        })}
 
         {/* x labels (start / end) */}
         <text
@@ -513,9 +528,8 @@ export function DonorsContributionsPage() {
   const [currency, setCurrency] = useState<string>(BASE_CURRENCY)
   const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false)
   const [topDonorsType, setTopDonorsType] = useState<'all' | DonationType>('Monetary')
-  const [allocationTime, setAllocationTime] = useState<
-    'all' | '1y' | '6m' | '1m' | '2w' | '1w'
-  >('all')
+  const [allocationTime, setAllocationTime] = useState<TimeRange>('all')
+  const [overviewTime, setOverviewTime] = useState<TimeRange>('all')
 
   const [donorDetailKey, setDonorDetailKey] = useState<string | null>(null)
   const [detailRow, setDetailRow] = useState<DonationWithSupporter | null>(null)
@@ -635,6 +649,9 @@ export function DonorsContributionsPage() {
       const t = parseISODateToUTC(r.donation_date)
       if (t == null) continue
 
+      const cutoff = cutoffForRange(overviewTime)
+      if (cutoff != null && t < cutoff) continue
+
       const fromCur = (r.currency_code ?? BASE_CURRENCY).trim() || BASE_CURRENCY
       const fx = convertCurrency(n, fromCur, currency)
       if (fx.converted == null) continue
@@ -648,7 +665,7 @@ export function DonorsContributionsPage() {
     const values = dates.map(d => totalsByDay.get(d) ?? 0)
 
     return { overall, dates, values }
-  }, [rawRows, currency])
+  }, [rawRows, currency, overviewTime])
 
   const donorDetail = useMemo(() => {
     if (!donorDetailKey) return null
@@ -828,17 +845,34 @@ export function DonorsContributionsPage() {
               Sum of monetary donations and trend over time in {currency}.
             </p>
           </div>
-          <div className="flex items-baseline gap-3">
-            <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">
-              Sum of monetary donations
-            </span>
-            <span className="text-xl font-semibold text-[var(--wt-text)] tabular-nums">
-              {formatMoney(currency, donationOverview.overall)}
-            </span>
+          <div className="flex items-center gap-4">
+            <label className="flex flex-col gap-1 min-w-[10rem] items-end">
+              <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Time range</span>
+              <select
+                className={selectClass}
+                value={overviewTime}
+                onChange={e => setOverviewTime(e.target.value as TimeRange)}
+              >
+                <option value="all">All-time</option>
+                <option value="1y">Last Year</option>
+                <option value="6m">Last 6 Months</option>
+                <option value="1m">Last Month</option>
+                <option value="2w">Last 2 Weeks</option>
+                <option value="1w">Last Week</option>
+              </select>
+            </label>
+            <div className="flex items-baseline gap-3">
+              <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">
+                Sum of monetary donations
+              </span>
+              <span className="text-xl font-semibold text-[var(--wt-text)] tabular-nums">
+                {formatMoney(currency, donationOverview.overall)}
+              </span>
+            </div>
           </div>
         </div>
         <div className="mt-2">
-          <LineChart
+          <BarChart
             title="Donations over time"
             dates={donationOverview.dates}
             values={donationOverview.values}
