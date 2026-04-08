@@ -646,7 +646,7 @@ export function DonorsContributionsPage() {
             </label>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)]">
+          <div className="mt-4 overflow-hidden rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[380px] overflow-y-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
@@ -726,7 +726,7 @@ export function DonorsContributionsPage() {
             </label>
           </div>
 
-          <div className="mt-4 flex items-center justify-center">
+          <div className="mt-4 flex justify-center">
             <div className="flex justify-center">
               {allocationsLoading ? (
                 <div className="flex items-center gap-3 text-sm text-[var(--wt-text-2)] py-10">

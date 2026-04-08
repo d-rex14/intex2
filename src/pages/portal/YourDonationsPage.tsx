@@ -38,6 +38,22 @@ function parseISODateToUTC(dateStr: string | null | undefined): number | null {
   return Number.isFinite(t) ? t : null
 }
 
+function formatFriendlyDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
+  const t = parseISODateToUTC(dateStr)
+  if (t == null) return '—'
+  const d = new Date(t)
+  const now = new Date()
+  const oneYearAgo = new Date(now.getTime())
+  oneYearAgo.setFullYear(now.getFullYear() - 1)
+
+  const optsRecent: Intl.DateTimeFormatOptions = { month: 'short', day: '2-digit' }
+  const optsOld: Intl.DateTimeFormatOptions = { month: 'short', day: '2-digit', year: 'numeric' }
+
+  const withinYear = t >= oneYearAgo.getTime()
+  return d.toLocaleDateString(undefined, withinYear ? optsRecent : optsOld)
+}
+
 function bestEffortDisplayName(email: string | null | undefined): string {
   const e = (email ?? '').trim()
   if (!e) return 'there'
@@ -358,7 +374,7 @@ export function YourDonationsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
           <div className="flex items-center justify-center">
             <div className="w-36 h-36 rounded-full border border-[var(--wt-border)] bg-[var(--wt-bg)] flex flex-col items-center justify-center text-center">
-              <div className="text-lg font-bold text-[var(--wt-text)]">{lastDonationDate?.slice(0, 10) ?? '—'}</div>
+              <div className="text-lg font-bold text-[var(--wt-text)]">{formatFriendlyDate(lastDonationDate)}</div>
               <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mt-1">Last donation</div>
               <div className="text-xs text-[var(--wt-text-2)] mt-1">{lastDonationAmount}</div>
             </div>
@@ -449,7 +465,7 @@ export function YourDonationsPage() {
                     className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]"
                   >
                     <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">
-                      {row.donation_date ?? '—'}
+                      {formatFriendlyDate(row.donation_date)}
                     </td>
                     <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{formatAmount(row, currency)}</td>
                     <td className="px-4 py-3 text-[var(--wt-text-2)]">{row.channel_source ?? '—'}</td>
