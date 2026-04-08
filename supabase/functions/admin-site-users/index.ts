@@ -48,33 +48,32 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")
 
-  if (!supabaseUrl || !serviceKey || !anonKey) {
+  if (!supabaseUrl || !serviceKey) {
     return json(req, { error: "Server misconfiguration" }, 500)
   }
 
-  const authHeader = req.headers.get("Authorization")
-  if (!authHeader) {
-    return json(req, { error: "Missing authorization" }, 401)
-  }
-
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  })
-
-  const {
-    data: { user },
-    error: userErr,
-  } = await userClient.auth.getUser()
-
-  if (userErr || !user) {
-    return json(req, { error: "Invalid session" }, 401)
+  // Validate the caller using their access JWT only (no anon-key client).
+  // Requires Authorization: Bearer <access_token> from the signed-in browser session.
+  const rawAuth = (req.headers.get("Authorization") ?? "").trim()
+  const jwtMatch = /^Bearer\s+(.+)$/i.exec(rawAuth)
+  const accessToken = jwtMatch?.[1]?.trim() ?? ""
+  if (!accessToken) {
+    return json(req, { error: "Missing Authorization: Bearer <access_token>" }, 401)
   }
 
   const adminClient = createClient(supabaseUrl, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
+
+  const {
+    data: { user },
+    error: userErr,
+  } = await adminClient.auth.getUser(accessToken)
+
+  if (userErr || !user) {
+    return json(req, { error: "Invalid session" }, 401)
+  }
 
   // Resolve admin role ID by name so this function works even if role IDs differ by environment.
   const { data: adminRoleRow, error: adminRoleErr } = await adminClient
