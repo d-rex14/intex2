@@ -23,6 +23,7 @@ import {
   SpiritualNeedsPage,
 } from './pages/public/ProgramPages'
 import { SocialPage } from './pages/public/SocialPage'
+import { DonorsContributionsPage } from './pages/admin/DonorsContributionsPage'
 
 function PageShell({
   title,
@@ -334,7 +335,7 @@ export function App() {
           }
         >
           <Route index element={<AdminPlaceholder title="Dashboard" />} />
-          <Route path="donors" element={<AdminPlaceholder title="Donors & Contributions" />} />
+          <Route path="donors" element={<DonorsContributionsPage />} />
           <Route path="caseload" element={<AdminPlaceholder title="Caseload Inventory" />} />
           <Route path="process-recordings" element={<AdminPlaceholder title="Process Recordings" />} />
           <Route path="visitations" element={<AdminPlaceholder title="Visitations & Conferences" />} />

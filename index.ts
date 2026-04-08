@@ -37,6 +37,8 @@ export interface Safehouse {
   
   export interface Supporter {
     supporter_id: number
+    /** Links to Supabase Auth when known; guest donations may leave this unset. */
+    auth_user_id?: string | null
     supporter_type: SupporterType
     display_name: string
     organization_name?: string

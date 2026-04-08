@@ -36,7 +36,14 @@ const ROUTE_ACCESS_RULES: { prefix: string; allowedRoleIds: readonly number[] }[
   { prefix: '/admin/caseload', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.COORDINATOR] },
   {
     prefix: '/admin/donors',
-    allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.DONOR, ROLE_IDS.STAFF, ROLE_IDS.COORDINATOR],
+    allowedRoleIds: [
+      ROLE_IDS.ADMIN,
+      ROLE_IDS.DONOR,
+      ROLE_IDS.STAFF,
+      ROLE_IDS.COORDINATOR,
+      /** Signed-in users can open read-only “My giving” before DONOR is assigned. */
+      ROLE_IDS.MEMBER,
+    ],
   },
   { prefix: '/admin', allowedRoleIds: [...ALL_ASSIGNED] },
 ]
@@ -53,6 +60,11 @@ export function hasRoleId(roleIds: readonly number[], id: number): boolean {
 
 export function hasAnyRoleId(roleIds: readonly number[], candidates: readonly number[]): boolean {
   return candidates.some(id => roleIds.includes(id))
+}
+
+/** Admin/staff portal CRUD — not the same as a donor viewing their own history. */
+export function isStaffLike(roleIds: readonly number[]): boolean {
+  return hasAnyRoleId(roleIds, [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.COORDINATOR])
 }
 
 /**

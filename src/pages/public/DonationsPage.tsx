@@ -1,5 +1,6 @@
 import { ORG } from '../../content/org'
 import { GiveButterWidget } from '../../components/GiveButterWidget'
+import { RecordedDonationForm } from '../../components/RecordedDonationForm'
 
 export function DonationsPage() {
   return (
@@ -26,6 +27,10 @@ export function DonationsPage() {
           rehabilitation, and reintegration services for children-survivors of sexual exploitation. Thank you for making this
           world a brighter place by helping to support the children of Watchtower Sanctuary!
         </p>
+      </div>
+
+      <div className="mt-12 max-w-xl mx-auto">
+        <RecordedDonationForm />
       </div>
 
       <h2 className="mt-14 font-display text-2xl font-bold text-[var(--wt-text)] text-center">
