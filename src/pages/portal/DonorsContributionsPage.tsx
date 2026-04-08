@@ -206,163 +206,6 @@ function parseISODateToUTC(dateStr: string | null | undefined): number | null {
   return Number.isFinite(t) ? t : null
 }
 
-function formatShortDateUTC(t: number): string {
-  const d = new Date(t)
-  const yyyy = d.getUTCFullYear()
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
-function startOfWeekUTC(t: number): number {
-  const d = new Date(t)
-  const day = d.getUTCDay() // 0..6 (Sun..Sat)
-  const diff = (day + 6) % 7 // make Monday start
-  const start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diff)
-  return start
-}
-
-function startOfMonthUTC(t: number): number {
-  const d = new Date(t)
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)
-}
-
-function bucketForRange(t: number, range: 'all' | '1y' | '6m' | '1m' | '2w' | '1w'): number {
-  if (range === '1w' || range === '2w' || range === '1m') return t // daily
-  if (range === '6m') return startOfWeekUTC(t)
-  return startOfMonthUTC(t) // 1y/all
-}
-
-function LineChart({
-  title,
-  buckets,
-  series,
-  currency,
-}: {
-  title: string
-  buckets: number[]
-  series: { key: string; color: string; values: number[] }[]
-  currency: string
-}) {
-  const width = 520
-  const height = 220
-  const padL = 44
-  const padR = 10
-  const padT = 14
-  const padB = 34
-
-  const maxY = Math.max(1, ...series.flatMap(s => s.values))
-  const xCount = Math.max(1, buckets.length - 1)
-
-  const x = (i: number) => padL + (i / xCount) * (width - padL - padR)
-  const y = (v: number) => padT + (1 - v / maxY) * (height - padT - padB)
-
-  const yTicks = 4
-  const tickVals = Array.from({ length: yTicks + 1 }, (_, i) => (i / yTicks) * maxY).reverse()
-
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null)
-
-  return (
-    <div className="relative w-full">
-      <svg
-        width="100%"
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label={title}
-        className="block"
-        onMouseLeave={() => setHoverIdx(null)}
-        onMouseMove={e => {
-          const svg = e.currentTarget
-          const rect = svg.getBoundingClientRect()
-          const px = ((e.clientX - rect.left) / rect.width) * width
-          const i = Math.round(((px - padL) / (width - padL - padR)) * xCount)
-          const idx = Math.min(Math.max(i, 0), buckets.length - 1)
-          setHoverIdx(idx)
-        }}
-      >
-        {/* grid + y labels */}
-        {tickVals.map((tv, i) => (
-          <g key={i}>
-            <line
-              x1={padL}
-              x2={width - padR}
-              y1={y(tv)}
-              y2={y(tv)}
-              stroke="color-mix(in_srgb,var(--wt-border)_55%,transparent)"
-              strokeWidth="1"
-            />
-            <text
-              x={padL - 8}
-              y={y(tv) + 4}
-              textAnchor="end"
-              className="fill-[var(--wt-text-2)]"
-              style={{ fontSize: 10 }}
-            >
-              {formatMoney(currency, tv).replace(`${currency} `, '')}
-            </text>
-          </g>
-        ))}
-
-        {/* series */}
-        {series.map(s => {
-          const d = s.values
-            .map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
-            .join(' ')
-          return <path key={s.key} d={d} fill="none" stroke={s.color} strokeWidth="2.25" opacity="0.95" />
-        })}
-
-        {/* x labels (start/end) */}
-        {buckets.length > 0 && (
-          <>
-            <text
-              x={padL}
-              y={height - 12}
-              textAnchor="start"
-              className="fill-[var(--wt-text-2)]"
-              style={{ fontSize: 10 }}
-            >
-              {formatShortDateUTC(buckets[0])}
-            </text>
-            <text
-              x={width - padR}
-              y={height - 12}
-              textAnchor="end"
-              className="fill-[var(--wt-text-2)]"
-              style={{ fontSize: 10 }}
-            >
-              {formatShortDateUTC(buckets[buckets.length - 1])}
-            </text>
-          </>
-        )}
-
-        {/* hover line */}
-        {hoverIdx != null && buckets[hoverIdx] != null && (
-          <line
-            x1={x(hoverIdx)}
-            x2={x(hoverIdx)}
-            y1={padT}
-            y2={height - padB}
-            stroke="color-mix(in_srgb,var(--wt-accent)_50%,transparent)"
-            strokeWidth="1"
-          />
-        )}
-      </svg>
-
-      {hoverIdx != null && buckets[hoverIdx] != null && (
-        <div className="mt-2 text-xs text-[var(--wt-text-2)]">
-          <span className="text-[var(--wt-text)] font-semibold">{formatShortDateUTC(buckets[hoverIdx])}</span>
-          {series.map(s => (
-            <span key={s.key} className="ml-3" title={`${s.key}: ${formatMoney(currency, s.values[hoverIdx] ?? 0)}`}>
-              <span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ backgroundColor: s.color }} />
-              {s.key}: <span className="tabular-nums">{formatMoney(currency, s.values[hoverIdx] ?? 0)}</span>
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 function DonutChart({
   title,
   data,
@@ -556,67 +399,6 @@ export function DonorsContributionsPage() {
   const allocatedTotal = useMemo(() => {
     return resourcesFunded.reduce((sum, d) => sum + d.value, 0)
   }, [resourcesFunded])
-
-  const donationTrends = useMemo(() => {
-    const rows = rawRows ?? []
-    const cutoff = cutoffForRange(allocationTime)
-
-    const points: { t: number; type: string; value: number }[] = []
-    for (const r of rows) {
-      const t = parseISODateToUTC(r.donation_date)
-      if (t == null) continue
-      if (cutoff != null && t < cutoff) continue
-      const val = r.amount ?? r.estimated_value
-      if (val == null) continue
-      const n = Number(val)
-      if (!Number.isFinite(n) || n <= 0) continue
-      const fromCur = (r.currency_code ?? BASE_CURRENCY).trim() || BASE_CURRENCY
-      const fx = convertCurrency(n, fromCur, currency)
-      const conv = fx.converted
-      if (conv == null) continue
-      points.push({ t, type: (r.donation_type ?? 'Unknown').trim() || 'Unknown', value: conv })
-    }
-
-    if (points.length === 0) {
-      return { buckets: [] as number[], series: [] as { key: string; color: string; values: number[] }[] }
-    }
-
-    // Build buckets over range
-    const minT = Math.min(...points.map(p => p.t))
-    const maxT = Math.max(...points.map(p => p.t))
-    const range = allocationTime
-    const bucketStarts = new Set<number>()
-    for (let t = minT; t <= maxT; ) {
-      const b = bucketForRange(t, range)
-      bucketStarts.add(b)
-      // step
-      if (range === '1w' || range === '2w' || range === '1m') t += 24 * 60 * 60 * 1000
-      else if (range === '6m') t += 7 * 24 * 60 * 60 * 1000
-      else t += 31 * 24 * 60 * 60 * 1000
-    }
-    const buckets = [...bucketStarts].sort((a, b) => a - b)
-    const idxByBucket = new Map<number, number>(buckets.map((b, i) => [b, i]))
-
-    const types = Array.from(new Set(points.map(p => p.type))).sort((a, b) => a.localeCompare(b))
-    const m = new Map<string, number[]>(types.map(t => [t, Array(buckets.length).fill(0)]))
-
-    for (const p of points) {
-      const b = bucketForRange(p.t, range)
-      const i = idxByBucket.get(b)
-      if (i == null) continue
-      const arr = m.get(p.type)
-      if (!arr) continue
-      arr[i] += p.value
-    }
-
-    const series = types.map(t => ({
-      key: t,
-      color: TYPE_COLORS[t] ?? '#94a3b8',
-      values: m.get(t)!,
-    }))
-
-    return { buckets, series }
-  }, [rawRows, allocationTime, currency])
 
   const topDonors = useMemo(() => {
     const rows = rawRows ?? []
@@ -944,7 +726,7 @@ export function DonorsContributionsPage() {
             </label>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+          <div className="mt-4 flex items-center justify-center">
             <div className="flex justify-center">
               {allocationsLoading ? (
                 <div className="flex items-center gap-3 text-sm text-[var(--wt-text-2)] py-10">
@@ -962,21 +744,6 @@ export function DonorsContributionsPage() {
                   valueCurrency={currency}
                   centerLabel={allocatedTotal > 0 ? formatMoney(currency, allocatedTotal) : '—'}
                   size={320}
-                />
-              )}
-            </div>
-            <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4">
-              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">
-                Donation Trends
-              </div>
-              {donationTrends.buckets.length === 0 ? (
-                <div className="py-8 text-sm text-[var(--wt-text-2)] text-center">No donation data in this range.</div>
-              ) : (
-                <LineChart
-                  title="Donation Trends"
-                  buckets={donationTrends.buckets}
-                  series={donationTrends.series}
-                  currency={currency}
                 />
               )}
             </div>
