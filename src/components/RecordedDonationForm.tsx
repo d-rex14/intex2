@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { campaignOptionsForSelect } from '../lib/fundraisingCampaigns'
 import { supabase } from '../lib/supabase'
 
 type DonationType = 'Monetary' | 'InKind' | 'Time' | 'Skills' | 'SocialMedia'
@@ -162,12 +163,17 @@ export function RecordedDonationForm() {
         <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)] mb-1">
           Campaign (optional)
         </label>
-        <input
+        <select
           value={campaignName}
           onChange={e => setCampaignName(e.target.value)}
           className="w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]"
-          placeholder="e.g. Year-End Hope"
-        />
+        >
+          {campaignOptionsForSelect(campaignName).map(o => (
+            <option key={o.value === '' ? '__none' : o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>
