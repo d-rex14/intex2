@@ -180,21 +180,204 @@ function DetailField({ label, children }: { label: string; children: ReactNode }
 }
 
 const CHART_COLORS = ['#475569', '#c59a54', '#6b7280', '#c2b89c', '#f59e0b', '#94a3b8'] as const
+const TYPE_COLORS: Record<string, string> = {
+  Monetary: '#f59e0b',
+  InKind: '#94a3b8',
+  Time: '#60a5fa',
+  Skills: '#34d399',
+  SocialMedia: '#a78bfa',
+} as const
+
+function cutoffForRange(range: 'all' | '1y' | '6m' | '1m' | '2w' | '1w'): number | null {
+  if (range === 'all') return null
+  const now = Date.now()
+  const msDay = 24 * 60 * 60 * 1000
+  if (range === '1y') return now - 365 * msDay
+  if (range === '6m') return now - 183 * msDay
+  if (range === '1m') return now - 30 * msDay
+  if (range === '2w') return now - 14 * msDay
+  return now - 7 * msDay
+}
+
+function parseISODateToUTC(dateStr: string | null | undefined): number | null {
+  const d = (dateStr ?? '').toString().slice(0, 10)
+  if (!d) return null
+  const t = Date.parse(`${d}T00:00:00Z`)
+  return Number.isFinite(t) ? t : null
+}
+
+function formatShortDateUTC(t: number): string {
+  const d = new Date(t)
+  const yyyy = d.getUTCFullYear()
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function startOfWeekUTC(t: number): number {
+  const d = new Date(t)
+  const day = d.getUTCDay() // 0..6 (Sun..Sat)
+  const diff = (day + 6) % 7 // make Monday start
+  const start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diff)
+  return start
+}
+
+function startOfMonthUTC(t: number): number {
+  const d = new Date(t)
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)
+}
+
+function bucketForRange(t: number, range: 'all' | '1y' | '6m' | '1m' | '2w' | '1w'): number {
+  if (range === '1w' || range === '2w' || range === '1m') return t // daily
+  if (range === '6m') return startOfWeekUTC(t)
+  return startOfMonthUTC(t) // 1y/all
+}
+
+function LineChart({
+  title,
+  buckets,
+  series,
+  currency,
+}: {
+  title: string
+  buckets: number[]
+  series: { key: string; color: string; values: number[] }[]
+  currency: string
+}) {
+  const width = 520
+  const height = 220
+  const padL = 44
+  const padR = 10
+  const padT = 14
+  const padB = 34
+
+  const maxY = Math.max(1, ...series.flatMap(s => s.values))
+  const xCount = Math.max(1, buckets.length - 1)
+
+  const x = (i: number) => padL + (i / xCount) * (width - padL - padR)
+  const y = (v: number) => padT + (1 - v / maxY) * (height - padT - padB)
+
+  const yTicks = 4
+  const tickVals = Array.from({ length: yTicks + 1 }, (_, i) => (i / yTicks) * maxY).reverse()
+
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null)
+
+  return (
+    <div className="relative w-full">
+      <svg
+        width="100%"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={title}
+        className="block"
+        onMouseLeave={() => setHoverIdx(null)}
+        onMouseMove={e => {
+          const svg = e.currentTarget
+          const rect = svg.getBoundingClientRect()
+          const px = ((e.clientX - rect.left) / rect.width) * width
+          const i = Math.round(((px - padL) / (width - padL - padR)) * xCount)
+          const idx = Math.min(Math.max(i, 0), buckets.length - 1)
+          setHoverIdx(idx)
+        }}
+      >
+        {/* grid + y labels */}
+        {tickVals.map((tv, i) => (
+          <g key={i}>
+            <line
+              x1={padL}
+              x2={width - padR}
+              y1={y(tv)}
+              y2={y(tv)}
+              stroke="color-mix(in_srgb,var(--wt-border)_55%,transparent)"
+              strokeWidth="1"
+            />
+            <text
+              x={padL - 8}
+              y={y(tv) + 4}
+              textAnchor="end"
+              className="fill-[var(--wt-text-2)]"
+              style={{ fontSize: 10 }}
+            >
+              {formatMoney(currency, tv).replace(`${currency} `, '')}
+            </text>
+          </g>
+        ))}
+
+        {/* series */}
+        {series.map(s => {
+          const d = s.values
+            .map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
+            .join(' ')
+          return <path key={s.key} d={d} fill="none" stroke={s.color} strokeWidth="2.25" opacity="0.95" />
+        })}
+
+        {/* x labels (start/end) */}
+        {buckets.length > 0 && (
+          <>
+            <text
+              x={padL}
+              y={height - 12}
+              textAnchor="start"
+              className="fill-[var(--wt-text-2)]"
+              style={{ fontSize: 10 }}
+            >
+              {formatShortDateUTC(buckets[0])}
+            </text>
+            <text
+              x={width - padR}
+              y={height - 12}
+              textAnchor="end"
+              className="fill-[var(--wt-text-2)]"
+              style={{ fontSize: 10 }}
+            >
+              {formatShortDateUTC(buckets[buckets.length - 1])}
+            </text>
+          </>
+        )}
+
+        {/* hover line */}
+        {hoverIdx != null && buckets[hoverIdx] != null && (
+          <line
+            x1={x(hoverIdx)}
+            x2={x(hoverIdx)}
+            y1={padT}
+            y2={height - padB}
+            stroke="color-mix(in_srgb,var(--wt-accent)_50%,transparent)"
+            strokeWidth="1"
+          />
+        )}
+      </svg>
+
+      {hoverIdx != null && buckets[hoverIdx] != null && (
+        <div className="mt-2 text-xs text-[var(--wt-text-2)]">
+          <span className="text-[var(--wt-text)] font-semibold">{formatShortDateUTC(buckets[hoverIdx])}</span>
+          {series.map(s => (
+            <span key={s.key} className="ml-3" title={`${s.key}: ${formatMoney(currency, s.values[hoverIdx] ?? 0)}`}>
+              <span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ backgroundColor: s.color }} />
+              {s.key}: <span className="tabular-nums">{formatMoney(currency, s.values[hoverIdx] ?? 0)}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function DonutChart({
   title,
   data,
   valueCurrency,
   centerLabel,
+  size = 280,
 }: {
   title: string
   data: { label: string; value: number; color: string }[]
   valueCurrency: string
   centerLabel: string
+  size?: number
 }) {
   const total = data.reduce((sum, d) => sum + d.value, 0)
-  const size = 220
-  const stroke = 18
+  const stroke = Math.max(18, Math.round(size * 0.08))
   const radius = (size - stroke) / 2
   const c = 2 * Math.PI * radius
 
@@ -326,6 +509,7 @@ export function DonorsContributionsPage() {
     'all' | '1y' | '6m' | '1m' | '2w' | '1w'
   >('all')
 
+  const [donorDetailKey, setDonorDetailKey] = useState<string | null>(null)
   const [detailRow, setDetailRow] = useState<DonationWithSupporter | null>(null)
   const [editing, setEditing] = useState<DonationWithSupporter | null>(null)
   const [deleting, setDeleting] = useState<DonationWithSupporter | null>(null)
@@ -345,27 +529,13 @@ export function DonorsContributionsPage() {
 
   const resourcesFunded = useMemo(() => {
     const rows = allocationRows ?? []
-    const now = Date.now()
-    const msDay = 24 * 60 * 60 * 1000
-    const cutoff =
-      allocationTime === 'all'
-        ? null
-        : allocationTime === '1y'
-          ? now - 365 * msDay
-          : allocationTime === '6m'
-            ? now - 183 * msDay
-            : allocationTime === '1m'
-              ? now - 30 * msDay
-              : allocationTime === '2w'
-                ? now - 14 * msDay
-                : now - 7 * msDay
+    const cutoff = cutoffForRange(allocationTime)
 
     const m = new Map<string, number>()
     for (const r of rows) {
       if (cutoff != null) {
-        const d = (r.allocation_date ?? '').toString().slice(0, 10)
-        const t = d ? Date.parse(`${d}T00:00:00Z`) : Number.NaN
-        if (!Number.isFinite(t) || t < cutoff) continue
+        const t = parseISODateToUTC(r.allocation_date)
+        if (t == null || t < cutoff) continue
       }
       const label = (r.program_area ?? '').trim() || 'Uncategorized'
       const amt = Number(r.amount_allocated ?? 0)
@@ -387,9 +557,81 @@ export function DonorsContributionsPage() {
     return resourcesFunded.reduce((sum, d) => sum + d.value, 0)
   }, [resourcesFunded])
 
+  const donationTrends = useMemo(() => {
+    const rows = rawRows ?? []
+    const cutoff = cutoffForRange(allocationTime)
+
+    const points: { t: number; type: string; value: number }[] = []
+    for (const r of rows) {
+      const t = parseISODateToUTC(r.donation_date)
+      if (t == null) continue
+      if (cutoff != null && t < cutoff) continue
+      const val = r.amount ?? r.estimated_value
+      if (val == null) continue
+      const n = Number(val)
+      if (!Number.isFinite(n) || n <= 0) continue
+      const fromCur = (r.currency_code ?? BASE_CURRENCY).trim() || BASE_CURRENCY
+      const fx = convertCurrency(n, fromCur, currency)
+      const conv = fx.converted
+      if (conv == null) continue
+      points.push({ t, type: (r.donation_type ?? 'Unknown').trim() || 'Unknown', value: conv })
+    }
+
+    if (points.length === 0) {
+      return { buckets: [] as number[], series: [] as { key: string; color: string; values: number[] }[] }
+    }
+
+    // Build buckets over range
+    const minT = Math.min(...points.map(p => p.t))
+    const maxT = Math.max(...points.map(p => p.t))
+    const range = allocationTime
+    const bucketStarts = new Set<number>()
+    for (let t = minT; t <= maxT; ) {
+      const b = bucketForRange(t, range)
+      bucketStarts.add(b)
+      // step
+      if (range === '1w' || range === '2w' || range === '1m') t += 24 * 60 * 60 * 1000
+      else if (range === '6m') t += 7 * 24 * 60 * 60 * 1000
+      else t += 31 * 24 * 60 * 60 * 1000
+    }
+    const buckets = [...bucketStarts].sort((a, b) => a - b)
+    const idxByBucket = new Map<number, number>(buckets.map((b, i) => [b, i]))
+
+    const types = Array.from(new Set(points.map(p => p.type))).sort((a, b) => a.localeCompare(b))
+    const m = new Map<string, number[]>(types.map(t => [t, Array(buckets.length).fill(0)]))
+
+    for (const p of points) {
+      const b = bucketForRange(p.t, range)
+      const i = idxByBucket.get(b)
+      if (i == null) continue
+      const arr = m.get(p.type)
+      if (!arr) continue
+      arr[i] += p.value
+    }
+
+    const series = types.map(t => ({
+      key: t,
+      color: TYPE_COLORS[t] ?? '#94a3b8',
+      values: m.get(t)!,
+    }))
+
+    return { buckets, series }
+  }, [rawRows, allocationTime, currency])
+
   const topDonors = useMemo(() => {
     const rows = rawRows ?? []
-    const totals = new Map<string, { donor: string; totalPHP: number; breakdown: Map<string, number>; hasMissingFX: boolean }>()
+    const totals = new Map<
+      string,
+      {
+        key: string
+        donor: string
+        email: string
+        supporter_id: number | null
+        total: number
+        breakdown: Map<string, number>
+        hasMissingFX: boolean
+      }
+    >()
 
     for (const r of rows) {
       if (topDonorsType !== 'all' && r.donation_type !== topDonorsType) continue
@@ -397,25 +639,71 @@ export function DonorsContributionsPage() {
       if (val == null) continue
       const key = r.supporter_id != null ? `supporter:${r.supporter_id}` : `email:${donorEmail(r)}`
       const donor = donorLabel(r)
+      const email = donorEmail(r)
+      const supporter_id = r.supporter_id ?? null
       const cur = (r.currency_code ?? BASE_CURRENCY).trim().toUpperCase() || BASE_CURRENCY
       const fx = convertCurrency(Number(val), cur, currency)
 
-      const prev = totals.get(key) ?? { donor, totalPHP: 0, breakdown: new Map<string, number>(), hasMissingFX: false }
+      const prev =
+        totals.get(key) ?? {
+          key,
+          donor,
+          email,
+          supporter_id,
+          total: 0,
+          breakdown: new Map<string, number>(),
+          hasMissingFX: false,
+        }
+
       if (fx.converted == null) {
         prev.hasMissingFX = true
         totals.set(key, prev)
         continue
       }
-      prev.totalPHP += fx.converted
+
+      prev.total += fx.converted
       prev.breakdown.set(cur, (prev.breakdown.get(cur) ?? 0) + Number(val))
-      // Prefer a nicer donor label if we see one later.
       if (prev.donor === '—' && donor !== '—') prev.donor = donor
+      if (prev.email === '—' && email !== '—') prev.email = email
+      if (prev.supporter_id == null && supporter_id != null) prev.supporter_id = supporter_id
       totals.set(key, prev)
     }
 
-    const sorted = [...totals.values()].sort((a, b) => b.totalPHP - a.totalPHP)
-    return sorted.slice(0, 5)
+    const sorted = [...totals.values()].sort((a, b) => b.total - a.total)
+    return sorted.slice(0, 10)
   }, [rawRows, topDonorsType, currency])
+
+  const donorDetail = useMemo(() => {
+    if (!donorDetailKey) return null
+    const row = topDonors.find(d => d.key === donorDetailKey)
+    if (!row) return null
+
+    const rows = rawRows ?? []
+    const matches = rows.filter(r => {
+      const k = r.supporter_id != null ? `supporter:${r.supporter_id}` : `email:${donorEmail(r)}`
+      return k === donorDetailKey
+    })
+
+    const totalsByType = new Map<string, number>()
+    for (const r of matches) {
+      const t = (r.donation_type ?? 'Unknown').trim() || 'Unknown'
+      const val = r.amount ?? r.estimated_value
+      if (val == null) continue
+      const fromCur = (r.currency_code ?? BASE_CURRENCY).trim() || BASE_CURRENCY
+      const fx = convertCurrency(Number(val), fromCur, currency)
+      if (fx.converted == null) continue
+      totalsByType.set(t, (totalsByType.get(t) ?? 0) + fx.converted)
+    }
+
+    const recent = [...matches].sort((a, b) => (b.donation_date ?? '').localeCompare(a.donation_date ?? '')).slice(0, 10)
+
+    return {
+      ...row,
+      totalsByType: [...totalsByType.entries()].sort((a, b) => b[1] - a[1]),
+      recent,
+      count: matches.length,
+    }
+  }, [donorDetailKey, topDonors, rawRows, currency])
 
   const filteredRows = useMemo(() => {
     const rows = rawRows ?? []
@@ -558,13 +846,8 @@ export function DonorsContributionsPage() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-5">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Top Donors</h2>
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 min-w-[12rem]">
+            <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Top Donors</h2>
+            <label className="flex flex-col gap-1 min-w-[12rem] items-end">
               <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Donation type</span>
               <select
                 className={selectClass}
@@ -612,7 +895,9 @@ export function DonorsContributionsPage() {
                     return (
                       <tr
                         key={`${d.donor}-${idx}`}
-                        className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]"
+                        className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)] cursor-pointer"
+                        onClick={() => setDonorDetailKey(d.key)}
+                        title="Click to view donor details"
                       >
                         <td className="px-4 py-3 text-[var(--wt-text)]">
                           <div className="flex items-center gap-2">
@@ -627,7 +912,7 @@ export function DonorsContributionsPage() {
                             className="text-[var(--wt-text)] font-semibold"
                             title={tooltip || undefined}
                           >
-                            {formatMoney(currency, d.totalPHP)}
+                            {formatMoney(currency, d.total)}
                           </span>
                         </td>
                       </tr>
@@ -640,11 +925,9 @@ export function DonorsContributionsPage() {
         </div>
 
         <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-5">
-          <div>
+          <div className="flex items-start justify-between gap-3">
             <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Resources Funded</h2>
-          </div>
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 min-w-[12rem]">
+            <label className="flex flex-col gap-1 min-w-[12rem] items-end">
               <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Time range</span>
               <select
                 className={selectClass}
@@ -660,8 +943,9 @@ export function DonorsContributionsPage() {
               </select>
             </label>
           </div>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4 items-center">
-            <div className="flex justify-center md:justify-start">
+
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+            <div className="flex justify-center">
               {allocationsLoading ? (
                 <div className="flex items-center gap-3 text-sm text-[var(--wt-text-2)] py-10">
                   <div className="w-6 h-6 border-2 border-[var(--wt-accent)] border-t-transparent rounded-full animate-spin" />
@@ -677,6 +961,22 @@ export function DonorsContributionsPage() {
                   data={resourcesFunded}
                   valueCurrency={currency}
                   centerLabel={allocatedTotal > 0 ? formatMoney(currency, allocatedTotal) : '—'}
+                  size={320}
+                />
+              )}
+            </div>
+            <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">
+                Donation Trends
+              </div>
+              {donationTrends.buckets.length === 0 ? (
+                <div className="py-8 text-sm text-[var(--wt-text-2)] text-center">No donation data in this range.</div>
+              ) : (
+                <LineChart
+                  title="Donation Trends"
+                  buckets={donationTrends.buckets}
+                  series={donationTrends.series}
+                  currency={currency}
                 />
               )}
             </div>
@@ -910,6 +1210,93 @@ export function DonorsContributionsPage() {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {donorDetail && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setDonorDetailKey(null)}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto shadow-xl"
+            role="dialog"
+            aria-labelledby="donor-detail-title"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-[var(--wt-border)] flex items-start justify-between gap-4">
+              <div>
+                <h2 id="donor-detail-title" className="font-display text-lg font-bold text-[var(--wt-text)]">
+                  {donorDetail.donor}
+                </h2>
+                <p className="text-sm text-[var(--wt-text-2)] mt-1">
+                  {donorDetail.email !== '—' ? donorDetail.email : 'Email not available'} • {donorDetail.count} donations
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDonorDetailKey(null)}
+                className="rounded-lg border border-[var(--wt-border)] px-3 py-2 text-sm text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_14%,transparent)]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
+                <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Totals by type ({currency})</div>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {donorDetail.totalsByType.length === 0 ? (
+                    <p className="text-sm text-[var(--wt-text-2)]">No totals available.</p>
+                  ) : (
+                    donorDetail.totalsByType.map(([t, v]) => (
+                      <div key={t} className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: TYPE_COLORS[t] ?? '#94a3b8' }} />
+                          <span className="text-sm text-[var(--wt-text)] truncate" title={t}>
+                            {t}
+                          </span>
+                        </div>
+                        <span className="text-sm text-[var(--wt-text)] font-semibold tabular-nums">{formatMoney(currency, v)}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] overflow-hidden">
+                <div className="px-4 py-3 border-b border-[var(--wt-border)] flex items-center justify-between">
+                  <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Recent donations</div>
+                  <div className="text-xs text-[var(--wt-text-2)]">Click a row for full details</div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
+                        <th className="px-4 py-3 font-medium whitespace-nowrap">Date</th>
+                        <th className="px-4 py-3 font-medium whitespace-nowrap">Type</th>
+                        <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Amount / value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {donorDetail.recent.map(r => (
+                        <tr
+                          key={r.donation_id}
+                          className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)] cursor-pointer"
+                          onClick={() => setDetailRow(r)}
+                        >
+                          <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.donation_date ?? '—'}</td>
+                          <td className="px-4 py-3 text-[var(--wt-text)]">{r.donation_type ?? '—'}</td>
+                          <td className="px-4 py-3 text-right text-[var(--wt-text)] tabular-nums">{formatAmount(r, currency)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>
