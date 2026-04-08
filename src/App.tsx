@@ -30,6 +30,7 @@ import { ProcessRecordingsPage } from './pages/portal/ProcessRecordingsPage'
 import { ReportsPage } from './pages/portal/ReportsPage'
 import { SiteUsersPage } from './pages/portal/SiteUsersPage'
 import { YourDonationsPage } from './pages/portal/YourDonationsPage'
+import { VisitationsPage } from './pages/portal/VisitationsPage'
 
 function PageShell({
   title,
@@ -76,6 +77,27 @@ function LoginPage() {
   const [mode, setMode] = React.useState<'signin' | 'signup'>('signin')
 
   if (session) return <Navigate to="/portal" replace />
+
+  const GoogleMark = () => (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" className="shrink-0">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.75 1.22 9.3 3.62l6.96-6.96C36.02 2.52 30.4 0 24 0 14.64 0 6.53 5.38 2.6 13.22l8.1 6.29C12.51 13.1 17.8 9.5 24 9.5Z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.17 24.55c0-1.57-.14-3.07-.4-4.55H24v8.62h12.47c-.54 2.78-2.11 5.13-4.46 6.7l7.2 5.58c4.2-3.88 6.96-9.6 6.96-16.35Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.7 28.98a14.6 14.6 0 0 1 0-9.96l-8.1-6.29a24 24 0 0 0 0 22.54l8.1-6.29Z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.4 0 12.02-2.11 16.02-5.73l-7.2-5.58c-2 1.34-4.56 2.13-8.82 2.13-6.2 0-11.49-3.6-13.3-8.51l-8.1 6.29C6.53 42.62 14.64 48 24 48Z"
+      />
+    </svg>
+  )
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -155,24 +177,10 @@ function LoginPage() {
               setLoading(false)
             }}
             disabled={loading}
-            className="w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-2 text-sm font-semibold text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] transition-colors disabled:opacity-60"
+            className="w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-2 text-sm font-semibold text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
           >
-            Continue with Google
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              setLoading(true)
-              setError(null)
-              setNotice(null)
-              const res = await signInWithOAuth('github')
-              if (res.error) setError(res.error)
-              setLoading(false)
-            }}
-            disabled={loading}
-            className="w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-2 text-sm font-semibold text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] transition-colors disabled:opacity-60"
-          >
-            Continue with GitHub
+            <GoogleMark />
+            Sign in with Google
           </button>
           <div className="flex items-center gap-3 py-2">
             <div className="h-px flex-1 bg-[var(--wt-border)]" />
@@ -346,6 +354,7 @@ export function App() {
           <Route path="donors" element={<DonorsContributionsPage />} />
           <Route path="caseload" element={<CaseloadPage />} />
           <Route path="process-recordings" element={<ProcessRecordingsPage />} />
+          <Route path="visitations" element={<VisitationsPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="your-donations" element={<YourDonationsPage />} />
           <Route path="site-users" element={<SiteUsersPage />} />

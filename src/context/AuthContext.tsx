@@ -39,7 +39,7 @@ interface AuthContextValue {
     password: string,
   ) => Promise<{ error?: string; needsEmailConfirmation?: boolean }>;
   signInWithOAuth: (
-    provider: Extract<Provider, "google" | "github">,
+    provider: Extract<Provider, "google">,
   ) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }

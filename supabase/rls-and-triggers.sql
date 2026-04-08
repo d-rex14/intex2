@@ -4,7 +4,7 @@
 
 -- ---------------------------------------------------------------------------
 -- Role IDs (keep in sync with src/lib/roles.ts ROLE_IDS)
--- 1 = ADMIN, 2 = DONOR, 3 = STAFF, 4 = COORDINATOR, 5 = MEMBER (default)
+-- 1 = SOCIAL_MEDIA_REP, 2 = DONOR, 3 = STAFF, 4 = ADMIN, 5 = USER (default)
 -- ---------------------------------------------------------------------------
 
 -- Example: helper for policies (returns true if auth.uid() has a row with that role_id)
@@ -31,11 +31,11 @@
 --   using (user_id = auth.uid());
 
 -- Operational tables (residents, donations, etc.): add policies per table, e.g. staff/admin
--- using user_has_role(1) or user_has_role(3) or user_has_role(4), and donor-scoped rows with
+-- using user_has_role(4) or user_has_role(3), and donor-scoped rows with
 -- user_has_role(2) plus row ownership keyed to auth.uid() or supporter_id.
 
 -- ---------------------------------------------------------------------------
--- Default role MEMBER (5) on signup
+-- Default role USER (5) on signup
 -- Prefer a trigger on auth.users so every new user gets a row even if the SPA never runs.
 -- ---------------------------------------------------------------------------
 
