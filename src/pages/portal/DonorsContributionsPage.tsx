@@ -188,7 +188,7 @@ const TYPE_COLORS: Record<string, string> = {
   SocialMedia: '#a78bfa',
 } as const
 
-type TimeRange = 'all' | '1y' | '6m' | '1m' | '2w' | '1w'
+type TimeRange = 'all' | '1y' | '6m' | '3m' | '1m' | '2w' | '1w'
 
 function cutoffForRange(range: TimeRange): number | null {
   if (range === 'all') return null
@@ -196,6 +196,7 @@ function cutoffForRange(range: TimeRange): number | null {
   const msDay = 24 * 60 * 60 * 1000
   if (range === '1y') return now - 365 * msDay
   if (range === '6m') return now - 183 * msDay
+  if (range === '3m') return now - 91 * msDay
   if (range === '1m') return now - 30 * msDay
   if (range === '2w') return now - 14 * msDay
   return now - 7 * msDay
@@ -325,8 +326,8 @@ function BarChart({
               width={barWidth}
               height={h}
               rx={2}
-              fill="color-mix(in_srgb,var(--wt-accent)_70%,white)"
-              opacity={isHover ? 1 : 0.85}
+              fill="#f59e0b"
+              opacity={isHover ? 1 : 0.82}
             />
           )
         })}
@@ -530,7 +531,7 @@ export function DonorsContributionsPage() {
   const [topDonorsType, setTopDonorsType] = useState<'all' | DonationType>('Monetary')
   const [allocationTime, setAllocationTime] = useState<TimeRange>('all')
   // Default to the smallest range we show on this card.
-  const [overviewTime, setOverviewTime] = useState<TimeRange>('1m')
+  const [overviewTime, setOverviewTime] = useState<TimeRange>('3m')
 
   const [donorDetailKey, setDonorDetailKey] = useState<string | null>(null)
   const [detailRow, setDetailRow] = useState<DonationWithSupporter | null>(null)
@@ -857,7 +858,7 @@ export function DonorsContributionsPage() {
                 <option value="all">All-time</option>
                 <option value="1y">Last Year</option>
                 <option value="6m">Last 6 Months</option>
-                <option value="1m">Last Month</option>
+                <option value="3m">Last 3 Months</option>
               </select>
             </label>
             <div className="flex items-baseline gap-3">
