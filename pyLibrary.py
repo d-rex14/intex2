@@ -1434,23 +1434,29 @@ def cross_validate_model(model, X, y, cv=5, scoring='roc_auc',
 
 
 def plot_learning_curve(model, X, y, cv=5, scoring='roc_auc',
-                         train_sizes=None, random_state=42):
+                         train_sizes=None, random_state=42, title='Learning Curve'):
   """
   Plot learning curve to diagnose bias/variance. Shows train vs. validation
   score as training set size grows.
   """
   import numpy as np
   import matplotlib.pyplot as plt
-  from sklearn.model_selection import learning_curve, StratifiedKFold
+  from sklearn.base import is_regressor
+  from sklearn.model_selection import learning_curve, StratifiedKFold, KFold
 
   if train_sizes is None:
     import numpy as np
     train_sizes = np.linspace(0.1, 1.0, 10)
 
-  skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=random_state)
+  # StratifiedKFold only supports classification; regression needs plain KFold.
+  cv_splitter = (
+      KFold(n_splits=cv, shuffle=True, random_state=random_state)
+      if is_regressor(model)
+      else StratifiedKFold(n_splits=cv, shuffle=True, random_state=random_state)
+  )
   sizes, train_scores, val_scores = learning_curve(
     model, X, y,
-    train_sizes=train_sizes, cv=skf,
+    train_sizes=train_sizes, cv=cv_splitter,
     scoring=scoring, n_jobs=-1
   )
   plt.figure(figsize=(9, 5))
@@ -1464,7 +1470,7 @@ def plot_learning_curve(model, X, y, cv=5, scoring='roc_auc',
     val_scores.mean(axis=1) + val_scores.std(axis=1), alpha=0.2)
   plt.xlabel('Training Set Size')
   plt.ylabel(scoring)
-  plt.title('Learning Curve')
+  plt.title(title)
   plt.legend()
   plt.tight_layout()
   plt.show()
@@ -1477,13 +1483,18 @@ def plot_validation_curve(model, X, y, param_name, param_range,
   validation performance.
   """
   import matplotlib.pyplot as plt
-  from sklearn.model_selection import validation_curve, StratifiedKFold
+  from sklearn.base import is_regressor
+  from sklearn.model_selection import validation_curve, StratifiedKFold, KFold
 
-  skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=random_state)
+  cv_splitter = (
+      KFold(n_splits=cv, shuffle=True, random_state=random_state)
+      if is_regressor(model)
+      else StratifiedKFold(n_splits=cv, shuffle=True, random_state=random_state)
+  )
   train_scores, val_scores = validation_curve(
     model, X, y,
     param_name=param_name, param_range=param_range,
-    cv=skf, scoring=scoring, n_jobs=-1
+    cv=cv_splitter, scoring=scoring, n_jobs=-1
   )
   plt.figure(figsize=(9, 5))
   plt.plot(param_range, train_scores.mean(axis=1), label='Train')
@@ -1505,10 +1516,15 @@ def tune_grid(model, param_grid, X_train, y_train, cv=5,
   """
   Run GridSearchCV. Returns the best estimator and prints best params + score.
   """
-  from sklearn.model_selection import GridSearchCV, StratifiedKFold
+  from sklearn.base import is_regressor
+  from sklearn.model_selection import GridSearchCV, StratifiedKFold, KFold
 
-  skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=random_state)
-  gs = GridSearchCV(model, param_grid, cv=skf, scoring=scoring, n_jobs=-1)
+  cv_splitter = (
+      KFold(n_splits=cv, shuffle=True, random_state=random_state)
+      if is_regressor(model)
+      else StratifiedKFold(n_splits=cv, shuffle=True, random_state=random_state)
+  )
+  gs = GridSearchCV(model, param_grid, cv=cv_splitter, scoring=scoring, n_jobs=-1)
   gs.fit(X_train, y_train)
   if verbose:
     print(f"Best params : {gs.best_params_}")
@@ -1521,10 +1537,15 @@ def tune_random(model, param_dist, X_train, y_train, n_iter=50, cv=5,
   """
   Run RandomizedSearchCV. Returns the best estimator and prints best params + score.
   """
-  from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
+  from sklearn.base import is_regressor
+  from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, KFold
 
-  skf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=random_state)
-  rs = RandomizedSearchCV(model, param_dist, n_iter=n_iter, cv=skf,
+  cv_splitter = (
+      KFold(n_splits=cv, shuffle=True, random_state=random_state)
+      if is_regressor(model)
+      else StratifiedKFold(n_splits=cv, shuffle=True, random_state=random_state)
+  )
+  rs = RandomizedSearchCV(model, param_dist, n_iter=n_iter, cv=cv_splitter,
                           scoring=scoring, n_jobs=-1, random_state=random_state)
   rs.fit(X_train, y_train)
   if verbose:

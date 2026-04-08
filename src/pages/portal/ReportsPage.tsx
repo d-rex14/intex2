@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
+import { bandNeutralCls, bandPositiveBarCls, bandPositiveCls, bandWarningCls } from '../../lib/mlBandStyles'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import { isStaffLike, ROLE_IDS } from '../../lib/roles'
 
@@ -107,20 +108,13 @@ function NoData({ message }: { message: string }) {
 }
 
 function BandPill({ band, type }: { band: string; type: 'upgrade' | 'churn' | 'neutral' }) {
-  const colors: Record<string, string> = {
-    High:
-      type === 'upgrade'
-        ? 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-accent)] border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]'
-        : type === 'churn'
-        ? 'bg-[color-mix(in_srgb,#dc2626_14%,transparent)] text-[#dc2626] border-[color-mix(in_srgb,#dc2626_30%,transparent)]'
-        : 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-accent)] border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]',
-    Medium:
-      'bg-[color-mix(in_srgb,var(--wt-text-2)_14%,transparent)] text-[var(--wt-text-2)] border-[color-mix(in_srgb,var(--wt-text-2)_25%,transparent)]',
-    Low: 'bg-[color-mix(in_srgb,var(--wt-border)_40%,transparent)] text-[var(--wt-text-2)] border-[var(--wt-border)]',
-  }
+  const colors: Record<string, string> =
+    type === 'churn'
+      ? { High: bandWarningCls, Medium: bandNeutralCls, Low: bandPositiveCls }
+      : { High: bandPositiveCls, Medium: bandNeutralCls, Low: bandNeutralCls }
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${colors[band] ?? colors.Low}`}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${colors[band] ?? bandNeutralCls}`}
     >
       {band}
     </span>
@@ -135,9 +129,9 @@ function BandBarChart({ data }: { data: UpgradeBandSummary[] }) {
       {data.map(d => (
         <div key={d.band} className="grid grid-cols-[5rem_1fr_3rem] items-center gap-3">
           <BandPill band={d.band} type="upgrade" />
-          <div className="h-3 rounded-full bg-[var(--wt-border)] overflow-hidden">
+            <div className="h-3 rounded-full bg-[var(--wt-border)] overflow-hidden">
             <div
-              className="h-full rounded-full bg-[var(--wt-accent)] transition-all"
+              className={`h-full rounded-full transition-all ${bandPositiveBarCls}`}
               style={{ width: `${(d.count / max) * 100}%` }}
             />
           </div>

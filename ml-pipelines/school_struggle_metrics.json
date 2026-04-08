@@ -1,0 +1,17 @@
+{
+  "model": "GradientBoostingClassifier",
+  "notebook": "school-struggle-risk.ipynb",
+  "target": "school_struggle",
+  "target_definition": "mean_attendance < 0.75 OR mean_progress < 60",
+  "n_total": 60,
+  "n_train": 48,
+  "n_test": 12,
+  "positive_rate": 0.5666666666666667,
+  "loo_cv_auc_gb": NaN,
+  "loo_cv_auc_gb_std": NaN,
+  "loo_cv_auc_lr": NaN,
+  "best_gb_params": "{'model__learning_rate': 0.05, 'model__max_depth': 3, 'model__n_estimators': 100, 'model__subsample': 0.9}",
+  "test_auc_gb": 0.37142857142857144,
+  "test_f1_gb": 0.3333333333333333,
+  "disclaimer": "Small N (~60). Scores are directional indicators for case prioritization, not clinical diagnoses. Social worker review is required before any action."
+}
