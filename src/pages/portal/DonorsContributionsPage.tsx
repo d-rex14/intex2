@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
@@ -74,23 +75,6 @@ function formatAmount(row: DonationWithSupporter): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function sortDonationsBySupporterFrequency(rows: DonationWithSupporter[]): DonationWithSupporter[] {
-  const counts = new Map<number | string, number>()
-  for (const d of rows) {
-    const key = d.supporter_id ?? 'none'
-    counts.set(key, (counts.get(key) ?? 0) + 1)
-  }
-  return [...rows].sort((a, b) => {
-    const ca = counts.get(a.supporter_id ?? 'none') ?? 0
-    const cb = counts.get(b.supporter_id ?? 'none') ?? 0
-    if (cb !== ca) return cb - ca
-    const da = a.donation_date ?? ''
-    const db = b.donation_date ?? ''
-    if (da !== db) return db.localeCompare(da)
-    return b.donation_id - a.donation_id
-  })
-}
-
 function sortFilteredByDate(
   rows: DonationWithSupporter[],
   order: 'newest' | 'oldest',
@@ -156,6 +140,15 @@ async function fetchDonations(): Promise<{
 const selectClass =
   'rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]'
 
+function DetailField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,11rem)_1fr] gap-1 sm:gap-3 py-2 border-b border-[var(--wt-border)]/60 last:border-0">
+      <dt className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] shrink-0">{label}</dt>
+      <dd className="text-sm text-[var(--wt-text)] break-words min-w-0">{children}</dd>
+    </div>
+  )
+}
+
 export function DonorsContributionsPage() {
   const { effectiveRoleIds } = useAuth()
   const staff = isStaffLike(effectiveRoleIds)
@@ -165,6 +158,7 @@ export function DonorsContributionsPage() {
   const [pageSize, setPageSize] = useState<number>(25)
   const [page, setPage] = useState(1)
 
+  const [detailRow, setDetailRow] = useState<DonationWithSupporter | null>(null)
   const [editing, setEditing] = useState<DonationWithSupporter | null>(null)
   const [deleting, setDeleting] = useState<DonationWithSupporter | null>(null)
   const [saving, setSaving] = useState(false)
@@ -176,11 +170,8 @@ export function DonorsContributionsPage() {
 
   const filteredRows = useMemo(() => {
     const rows = rawRows ?? []
-    let subset =
+    const subset =
       donationTypeFilter === 'all' ? rows : rows.filter(r => r.donation_type === donationTypeFilter)
-    if (donationTypeFilter === 'all') {
-      return sortDonationsBySupporterFrequency(subset)
-    }
     return sortFilteredByDate(subset, sortByDate)
   }, [rawRows, donationTypeFilter, sortByDate])
 
@@ -264,13 +255,14 @@ export function DonorsContributionsPage() {
           <p className="text-sm text-[var(--wt-text-2)] mt-1 max-w-2xl">
             {donationTypeFilter === 'all' ? (
               <>
-                With <strong className="text-[var(--wt-text)]">All types</strong>, rows are ordered by donor frequency, then
-                date (newest first). Filter by type to sort by donation date only.
+                Showing <strong className="text-[var(--wt-text)]">all donation types</strong>, ordered by date (
+                {sortByDate === 'newest' ? 'newest first' : 'oldest first'}). Open <strong className="text-[var(--wt-text)]">Details</strong>{' '}
+                for full information about a gift.
               </>
             ) : (
               <>
-                Filtered by <strong className="text-[var(--wt-text)]">{donationTypeFilter}</strong>; sorted by donation date
-                ({sortByDate === 'newest' ? 'newest first' : 'oldest first'}).
+                Filtered to <strong className="text-[var(--wt-text)]">{donationTypeFilter}</strong>; sorted by date (
+                {sortByDate === 'newest' ? 'newest first' : 'oldest first'}).
               </>
             )}
           </p>
@@ -302,15 +294,13 @@ export function DonorsContributionsPage() {
             ))}
           </select>
         </label>
-        {donationTypeFilter !== 'all' && (
-          <label className="flex flex-col gap-1 min-w-[10rem]">
-            <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Date order</span>
-            <select className={selectClass} value={sortByDate} onChange={e => setSortByDate(e.target.value as 'newest' | 'oldest')}>
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </select>
-          </label>
-        )}
+        <label className="flex flex-col gap-1 min-w-[10rem]">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Date order</span>
+          <select className={selectClass} value={sortByDate} onChange={e => setSortByDate(e.target.value as 'newest' | 'oldest')}>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </label>
         <label className="flex flex-col gap-1 min-w-[8rem]">
           <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Rows per page</span>
           <select
@@ -352,15 +342,13 @@ export function DonorsContributionsPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">ID</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Donor</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Email</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Type</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Date</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Amount / value</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Recurring</th>
-                  <th className="px-4 py-3 font-medium min-w-[8rem]">Campaign</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Channel</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap">Details</th>
                   {staff && <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Actions</th>}
                 </tr>
               </thead>
@@ -370,21 +358,23 @@ export function DonorsContributionsPage() {
                     key={row.donation_id}
                     className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]"
                   >
-                    <td className="px-4 py-3 text-[var(--wt-text)] tabular-nums">{row.donation_id}</td>
                     <td className="px-4 py-3 text-[var(--wt-text)]">{donorLabel(row)}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text-2)] text-xs max-w-[12rem] truncate">
-                      {donorEmail(row)}
-                    </td>
                     <td className="px-4 py-3 text-[var(--wt-text)]">{row.donation_type ?? '—'}</td>
                     <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">
                       {row.donation_date ?? '—'}
                     </td>
                     <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{formatAmount(row)}</td>
                     <td className="px-4 py-3 text-[var(--wt-text)]">{row.is_recurring ? 'Yes' : 'No'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text-2)] max-w-[10rem] truncate">
-                      {row.campaign_name?.trim() || '—'}
-                    </td>
                     <td className="px-4 py-3 text-[var(--wt-text-2)]">{row.channel_source ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setDetailRow(row)}
+                        className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-1.5 text-xs font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_14%,transparent)] transition-colors"
+                      >
+                        Details
+                      </button>
+                    </td>
                     {staff && (
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex justify-end gap-2">
@@ -460,6 +450,61 @@ export function DonorsContributionsPage() {
             >
               Last
             </button>
+          </div>
+        </div>
+      )}
+
+      {detailRow && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setDetailRow(null)}
+          role="presentation"
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto shadow-xl"
+            role="dialog"
+            aria-labelledby="donation-detail-title"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="p-6 space-y-4 border-b border-[var(--wt-border)]">
+              <h2 id="donation-detail-title" className="font-display text-lg font-bold text-[var(--wt-text)]">
+                Donation report
+              </h2>
+              <p className="text-xs text-[var(--wt-text-2)]">Full record for this contribution.</p>
+            </div>
+            <dl className="px-6 py-2">
+              <DetailField label="Donation ID">{detailRow.donation_id}</DetailField>
+              <DetailField label="Supporter ID">{detailRow.supporter_id ?? '—'}</DetailField>
+              <DetailField label="Donor">{donorLabel(detailRow)}</DetailField>
+              <DetailField label="Email">{donorEmail(detailRow)}</DetailField>
+              <DetailField label="Type">{detailRow.donation_type ?? '—'}</DetailField>
+              <DetailField label="Date">{detailRow.donation_date ?? '—'}</DetailField>
+              <DetailField label="Campaign">{detailRow.campaign_name?.trim() || '—'}</DetailField>
+              <DetailField label="Channel">{detailRow.channel_source ?? '—'}</DetailField>
+              <DetailField label="Currency">{detailRow.currency_code?.trim() || '—'}</DetailField>
+              <DetailField label="Amount">{formatAmount(detailRow)}</DetailField>
+              <DetailField label="Estimated value">
+                {detailRow.estimated_value != null ? String(detailRow.estimated_value) : '—'}
+              </DetailField>
+              <DetailField label="Impact unit">{detailRow.impact_unit?.trim() || '—'}</DetailField>
+              <DetailField label="Recurring">{detailRow.is_recurring ? 'Yes' : 'No'}</DetailField>
+              <DetailField label="Notes">
+                {detailRow.notes?.trim() ? (
+                  <span className="whitespace-pre-wrap">{detailRow.notes}</span>
+                ) : (
+                  '—'
+                )}
+              </DetailField>
+            </dl>
+            <div className="p-6 pt-2 flex justify-end border-t border-[var(--wt-border)]">
+              <button
+                type="button"
+                onClick={() => setDetailRow(null)}
+                className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
