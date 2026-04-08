@@ -6,12 +6,19 @@ const GIVEBUTTER_SCRIPT =
 export function GiveButterWidget({ id = 'jN24wj' }: { id?: string }) {
   useEffect(() => {
     const prefix = GIVEBUTTER_SCRIPT.split('&')[0]
-    const existing = document.querySelector(`script[src^="${prefix}"]`)
-    if (existing) return
-    const s = document.createElement('script')
-    s.src = GIVEBUTTER_SCRIPT
-    s.async = true
-    document.body.appendChild(s)
+    let script = document.querySelector<HTMLScriptElement>(`script[src^="${prefix}"]`)
+    if (!script) {
+      script = document.createElement('script')
+      script.src = GIVEBUTTER_SCRIPT
+      script.async = true
+      document.body.appendChild(script)
+    }
+    // Remove script when the Donations page unmounts so iFrameResizer does not
+    // keep polling and triggering history events on other pages (which Chrome throttles).
+    return () => {
+      const el = document.querySelector<HTMLScriptElement>(`script[src^="${prefix}"]`)
+      el?.parentNode?.removeChild(el)
+    }
   }, [])
 
   return React.createElement('givebutter-widget', {

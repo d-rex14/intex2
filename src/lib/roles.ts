@@ -1,50 +1,55 @@
 import type { User } from '@supabase/supabase-js'
 
 /**
- * Aligns with Supabase `roles.role_id` / `user_roles.role_id`.
- * Union rule: if a user has multiple rows in `user_roles`, they may access any route
- * allowed for any of their role_ids. Role ADMIN (1) bypasses checks.
+ * Role IDs — must match `public.roles` in Supabase exactly.
+ *
+ * id | name
+ * ---+-----------------
+ *  1 | social_media_rep
+ *  2 | donor
+ *  3 | staff
+ *  4 | admin
+ *  5 | user  (default on signup / fallback for accounts with no role row)
  */
-
-/** Matches typical Lighthouse / Watchtower deployment; adjust if your `roles` table differs. */
 export const ROLE_IDS = {
-  ADMIN: 1,
-  /** Donor capabilities (e.g. giving history); may be auto-granted after a donation. */
+  SOCIAL_MEDIA_REP: 1,
   DONOR: 2,
   STAFF: 3,
-  /** Elevated operational access (e.g. coordinators); same route set as STAFF unless you split in DB. */
-  COORDINATOR: 4,
-  /** Default at signup; minimal portal access. */
-  MEMBER: 5,
+  ADMIN: 4,
+  /** Default role — all signed-in users without an explicit role fall back here. */
+  USER: 5,
 } as const
 
 export type RoleId = (typeof ROLE_IDS)[keyof typeof ROLE_IDS]
 
 const ALL_ASSIGNED = [
   ROLE_IDS.ADMIN,
-  ROLE_IDS.DONOR,
   ROLE_IDS.STAFF,
-  ROLE_IDS.COORDINATOR,
-  ROLE_IDS.MEMBER,
+  ROLE_IDS.DONOR,
+  ROLE_IDS.SOCIAL_MEDIA_REP,
+  ROLE_IDS.USER,
 ] as const
 
 /** Longest-prefix wins; order matters (most specific first). */
 const ROUTE_ACCESS_RULES: { prefix: string; allowedRoleIds: readonly number[] }[] = [
-  { prefix: '/admin/reports', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.COORDINATOR] },
-  { prefix: '/admin/visitations', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.COORDINATOR] },
-  { prefix: '/admin/process-recordings', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.COORDINATOR] },
-  { prefix: '/admin/caseload', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.COORDINATOR] },
+  // Sensitive case-management routes: staff + admin only
+  { prefix: '/admin/visitations', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF] },
+  { prefix: '/admin/process-recordings', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF] },
+  { prefix: '/admin/caseload', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF] },
+  // Reports: staff, admin, and social_media_rep (they need outreach analytics)
+  { prefix: '/admin/reports', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.SOCIAL_MEDIA_REP] },
+  // Donors page: staff/admin full CRUD; donors, social_media_rep, and basic users see own giving
   {
     prefix: '/admin/donors',
     allowedRoleIds: [
       ROLE_IDS.ADMIN,
-      ROLE_IDS.DONOR,
       ROLE_IDS.STAFF,
-      ROLE_IDS.COORDINATOR,
-      /** Signed-in users can open read-only “My giving” before DONOR is assigned. */
-      ROLE_IDS.MEMBER,
+      ROLE_IDS.DONOR,
+      ROLE_IDS.SOCIAL_MEDIA_REP,
+      ROLE_IDS.USER,
     ],
   },
+  // Dashboard: everyone with any role (includes fallback USER for new accounts)
   { prefix: '/admin', allowedRoleIds: [...ALL_ASSIGNED] },
 ]
 
@@ -62,14 +67,14 @@ export function hasAnyRoleId(roleIds: readonly number[], candidates: readonly nu
   return candidates.some(id => roleIds.includes(id))
 }
 
-/** Admin/staff portal CRUD — not the same as a donor viewing their own history. */
+/** Admin/staff portal CRUD — not donors/social_media_rep viewing limited data. */
 export function isStaffLike(roleIds: readonly number[]): boolean {
-  return hasAnyRoleId(roleIds, [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.COORDINATOR])
+  return hasAnyRoleId(roleIds, [ROLE_IDS.ADMIN, ROLE_IDS.STAFF])
 }
 
 /**
  * Whether the user may open this pathname under `/admin`.
- * ADMIN (1) always returns true for routes under `/admin`.
+ * ADMIN (4) always returns true for any route under `/admin`.
  */
 export function canAccessPath(roleIds: readonly number[], pathname: string): boolean {
   if (roleIds.includes(ROLE_IDS.ADMIN)) return true
@@ -89,7 +94,7 @@ export function canAccessNavPath(roleIds: readonly number[], navPath: string): b
   return canAccessPath(roleIds, navPath)
 }
 
-export type LegacyRoleLabel = 'admin' | 'staff' | 'donor' | 'member' | 'unknown'
+export type LegacyRoleLabel = 'admin' | 'staff' | 'social_media_rep' | 'donor' | 'member' | 'unknown'
 
 /**
  * Human-readable primary label for the portal footer (best-effort from numeric roles).
@@ -97,9 +102,9 @@ export type LegacyRoleLabel = 'admin' | 'staff' | 'donor' | 'member' | 'unknown'
 export function roleIdsToDisplayLabel(roleIds: readonly number[]): LegacyRoleLabel {
   if (roleIds.includes(ROLE_IDS.ADMIN)) return 'admin'
   if (roleIds.includes(ROLE_IDS.STAFF)) return 'staff'
-  if (roleIds.includes(ROLE_IDS.COORDINATOR)) return 'staff'
+  if (roleIds.includes(ROLE_IDS.SOCIAL_MEDIA_REP)) return 'social_media_rep'
   if (roleIds.includes(ROLE_IDS.DONOR)) return 'donor'
-  if (roleIds.includes(ROLE_IDS.MEMBER)) return 'member'
+  if (roleIds.includes(ROLE_IDS.USER)) return 'member'
   return 'unknown'
 }
 
@@ -114,18 +119,19 @@ export function roleIdsFromMetadata(user: User | null): number[] {
   if (r === 'admin') return [ROLE_IDS.ADMIN]
   if (r === 'staff') return [ROLE_IDS.STAFF]
   if (r === 'donor') return [ROLE_IDS.DONOR]
+  if (r === 'social_media_rep') return [ROLE_IDS.SOCIAL_MEDIA_REP]
   return []
 }
 
 /**
  * Prefer DB `user_roles`; if empty, use JWT metadata; if still empty but session exists,
- * assume MEMBER (5) so the portal remains usable before the signup trigger runs.
+ * fall back to USER (5) so new accounts can open the portal without a role row.
  */
 export function resolveEffectiveRoleIds(dbRoleIds: readonly number[], user: User | null): number[] {
   if (dbRoleIds.length > 0) return [...dbRoleIds]
   const fromMeta = roleIdsFromMetadata(user)
   if (fromMeta.length > 0) return fromMeta
-  if (user) return [ROLE_IDS.MEMBER]
+  if (user) return [ROLE_IDS.USER]
   return []
 }
 

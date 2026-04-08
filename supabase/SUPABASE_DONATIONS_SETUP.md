@@ -128,7 +128,7 @@ AS $$
     SELECT 1
     FROM public.user_roles ur
     WHERE ur.user_id = auth.uid()
-      AND ur.role_id IN (1, 3, 4) -- ADMIN, STAFF, COORDINATOR — align with public.roles
+      AND ur.role_id IN (3, 4) -- staff=3, admin=4 per public.roles
   );
 $$;
 
@@ -329,6 +329,21 @@ CREATE POLICY donations_self_select
 
 - **No** `INSERT`/`UPDATE` on `donations` / `supporters` for end users via PostgREST — demo gifts go through `submit_public_demo_donation` only.
 - If policy names collide with existing ones, `DROP POLICY …` first or pick new names.
+
+---
+
+## 6b. Re-run `is_staff_portal_user` if already created with wrong IDs
+
+If you ran Section 4 before the roles table mismatch was discovered, the function was created with `role_id IN (1, 3, 4)` which treated `social_media_rep` as staff. Re-run the corrected version from Section 4 above (it uses `CREATE OR REPLACE`, so it is safe to run again). The correct check is `role_id IN (3, 4)` — staff and admin.
+
+Also update your own admin account role if needed:
+
+```sql
+-- Move yourself from social_media_rep (1) to admin (4)
+UPDATE public.user_roles
+SET role_id = 4
+WHERE user_id = (SELECT id FROM auth.users WHERE email = 'your-email@example.com');
+```
 
 ---
 
