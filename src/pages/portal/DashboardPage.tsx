@@ -31,6 +31,8 @@ type DashboardData = {
   openIncidentsCount: number | null
   openPlansCount: number | null
   safehouses: SafehouseRow[]
+  /** Active residents per safehouse (preferred over safehouses.current_occupancy when present). */
+  activeOccupancyBySafehouse: Record<number, number>
   socialPostsCount30d: number | null
   socialAvgEngagementRate30d: number | null
 }
@@ -95,9 +97,10 @@ async function fetchDashboardData(): Promise<{ data: DashboardData | null; error
   const d7 = daysAgoISO(7)
 
   try {
-    const [activeResidents, donations30d, process7d, incidentsOpen, plansOpen, safehouses, social30d] =
+    const [activeResidents, activeResidentsRows, donations30d, process7d, incidentsOpen, plansOpen, safehouses, social30d] =
       await Promise.all([
         supabase.from('residents').select('resident_id', { count: 'exact', head: true }).eq('case_status', 'Active'),
+        supabase.from('residents').select('safehouse_id').eq('case_status', 'Active').limit(5000),
         supabase
           .from('donations')
           .select('donation_type, amount, estimated_value, donation_date')
@@ -125,6 +128,7 @@ async function fetchDashboardData(): Promise<{ data: DashboardData | null; error
       ])
 
     if (activeResidents.error) throw activeResidents.error
+    if (activeResidentsRows.error) throw activeResidentsRows.error
     if (donations30d.error) throw donations30d.error
     if (process7d.error) throw process7d.error
     if (incidentsOpen.error) throw incidentsOpen.error
@@ -154,6 +158,13 @@ async function fetchDashboardData(): Promise<{ data: DashboardData | null; error
         ? null
         : socialRows.reduce((sum, r) => sum + Number(r.engagement_rate ?? 0), 0) / socialRows.length
 
+    const activeOccupancyBySafehouse: Record<number, number> = {}
+    for (const row of (activeResidentsRows.data ?? []) as { safehouse_id: number | null }[]) {
+      const id = row.safehouse_id
+      if (id == null || !Number.isFinite(id)) continue
+      activeOccupancyBySafehouse[id] = (activeOccupancyBySafehouse[id] ?? 0) + 1
+    }
+
     const payload: DashboardData = {
       activeResidentsCount: activeResidents.count ?? null,
       recentDonationsCount30d,
@@ -162,6 +173,7 @@ async function fetchDashboardData(): Promise<{ data: DashboardData | null; error
       openIncidentsCount: incidentsOpen.count ?? null,
       openPlansCount: plansOpen.count ?? null,
       safehouses: ((safehouses.data ?? []) as SafehouseRow[]) ?? [],
+      activeOccupancyBySafehouse,
       socialPostsCount30d,
       socialAvgEngagementRate30d,
     }
@@ -279,7 +291,10 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        <SectionCard title="Safehouse occupancy" subtitle="Current occupancy vs capacity (girls).">
+        <SectionCard
+          title="Safehouse occupancy"
+          subtitle="Active residents per safehouse vs capacity (girls); counts follow live assignments, not only the stored occupancy column."
+        >
           {loading ? (
             <div className="flex items-center gap-3 py-5 justify-center text-sm text-[var(--wt-text-2)]">
               <div className="w-6 h-6 border-2 border-[var(--wt-accent)] border-t-transparent rounded-full animate-spin" />
@@ -292,7 +307,8 @@ export function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {(data?.safehouses ?? []).map((s) => {
-                const occ = Number(s.current_occupancy ?? 0)
+                const derived = data?.activeOccupancyBySafehouse[s.safehouse_id]
+                const occ = derived !== undefined ? derived : Number(s.current_occupancy ?? 0)
                 const cap = Number(s.capacity_girls ?? 0)
                 const pct = cap > 0 ? Math.min(1, occ / cap) : 0
                 return (

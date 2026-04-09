@@ -155,6 +155,31 @@ function emptyDraft(): RecordingDraft {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 
+/** Aligned with seed data patterns; values normalize free-text to these picks. */
+const EMOTION_OPTIONS = [
+  'Angry',
+  'Anxious',
+  'Calm',
+  'Distressed',
+  'Happy',
+  'Hopeful',
+  'Sad',
+  'Withdrawn',
+] as const
+
+function defaultSocialWorkerCodes(): string[] {
+  return Array.from({ length: 25 }, (_, i) => `SW-${String(i + 1).padStart(2, '0')}`)
+}
+
+function mergeSortedStrings(base: readonly string[], fromData: Iterable<string>): string[] {
+  const s = new Set<string>(base)
+  for (const x of fromData) {
+    const t = x.trim()
+    if (t) s.add(t)
+  }
+  return [...s].sort((a, b) => a.localeCompare(b))
+}
+
 function ModalShell({
   title,
   subtitle,
@@ -211,12 +236,23 @@ export function ProcessRecordingsPage() {
   const { data: residentOptions } = useSupabaseQuery<ResidentOption[]>(residentsQ)
 
   const socialWorkers = useMemo(() => {
-    const s = new Set<string>()
+    const fromRows: string[] = []
     for (const r of rawRows ?? []) {
       const w = (r.social_worker ?? '').trim()
-      if (w) s.add(w)
+      if (w) fromRows.push(w)
     }
-    return [...s].sort((a, b) => a.localeCompare(b))
+    return mergeSortedStrings(defaultSocialWorkerCodes(), fromRows)
+  }, [rawRows])
+
+  const emotionOptions = useMemo(() => {
+    const fromRows: string[] = []
+    for (const r of rawRows ?? []) {
+      const a = (r.emotional_state_observed ?? '').trim()
+      const b = (r.emotional_state_end ?? '').trim()
+      if (a) fromRows.push(a)
+      if (b) fromRows.push(b)
+    }
+    return mergeSortedStrings(EMOTION_OPTIONS, fromRows)
   }, [rawRows])
 
   const filtered = useMemo(() => {
@@ -465,6 +501,7 @@ export function ProcessRecordingsPage() {
             <option value="all">All types</option>
             <option value="Individual">Individual</option>
             <option value="Group">Group</option>
+            <option value="Family">Family</option>
           </select>
         </label>
 
@@ -741,11 +778,18 @@ export function ProcessRecordingsPage() {
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
                 Social worker
-                <input
+                <select
                   value={draft.social_worker ?? ''}
                   onChange={(e) => setDraft((d) => ({ ...d, social_worker: e.target.value }))}
                   className={inputClass}
-                />
+                >
+                  <option value="">—</option>
+                  {socialWorkers.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
@@ -758,6 +802,7 @@ export function ProcessRecordingsPage() {
                   <option value="">—</option>
                   <option value="Individual">Individual</option>
                   <option value="Group">Group</option>
+                  <option value="Family">Family</option>
                 </select>
               </label>
 
@@ -774,20 +819,34 @@ export function ProcessRecordingsPage() {
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
                 Start emotion
-                <input
+                <select
                   value={draft.emotional_state_observed ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, emotional_state_observed: e.target.value }))}
+                  onChange={(e) => setDraft((d) => ({ ...d, emotional_state_observed: e.target.value || null }))}
                   className={inputClass}
-                />
+                >
+                  <option value="">—</option>
+                  {emotionOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
                 End emotion
-                <input
+                <select
                   value={draft.emotional_state_end ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, emotional_state_end: e.target.value }))}
+                  onChange={(e) => setDraft((d) => ({ ...d, emotional_state_end: e.target.value || null }))}
                   className={inputClass}
-                />
+                >
+                  <option value="">—</option>
+                  {emotionOptions.map((opt) => (
+                    <option key={`end-${opt}`} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="flex items-center gap-2 text-sm text-[var(--wt-text)] col-span-1 md:col-span-2 cursor-pointer">

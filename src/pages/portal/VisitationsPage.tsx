@@ -149,6 +149,33 @@ function emptyDraft(): VisitationDraft {
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 
+const VISIT_TYPE_OPTIONS = [
+  'Crisis',
+  'Emergency',
+  'Initial',
+  'Post-Placement Monitoring',
+  'Pre-Reintegration',
+  'Reintegration Assessment',
+  'Routine Follow-Up',
+] as const
+
+const COOPERATION_OPTIONS = ['Cooperative', 'Highly Cooperative', 'Neutral', 'Uncooperative'] as const
+
+const OUTCOME_OPTIONS = ['Favorable', 'Inconclusive', 'Needs Improvement', 'Neutral', 'Unfavorable'] as const
+
+function defaultSocialWorkerCodes(): string[] {
+  return Array.from({ length: 25 }, (_, i) => `SW-${String(i + 1).padStart(2, '0')}`)
+}
+
+function mergeSortedStrings(base: readonly string[], fromData: Iterable<string>): string[] {
+  const s = new Set<string>(base)
+  for (const x of fromData) {
+    const t = x.trim()
+    if (t) s.add(t)
+  }
+  return [...s].sort((a, b) => a.localeCompare(b))
+}
+
 function ModalShell({
   title,
   subtitle,
@@ -207,30 +234,39 @@ export function VisitationsPage() {
   const { data: residentOptions } = useSupabaseQuery<ResidentOption[]>(residentsQ)
 
   const socialWorkers = useMemo(() => {
-    const s = new Set<string>()
+    const fromRows: string[] = []
     for (const r of rawRows ?? []) {
       const w = (r.social_worker ?? '').trim()
-      if (w) s.add(w)
+      if (w) fromRows.push(w)
     }
-    return [...s].sort((a, b) => a.localeCompare(b))
+    return mergeSortedStrings(defaultSocialWorkerCodes(), fromRows)
   }, [rawRows])
 
   const visitTypes = useMemo(() => {
-    const s = new Set<string>()
+    const fromRows: string[] = []
     for (const r of rawRows ?? []) {
       const t = (r.visit_type ?? '').trim()
-      if (t) s.add(t)
+      if (t) fromRows.push(t)
     }
-    return [...s].sort((a, b) => a.localeCompare(b))
+    return mergeSortedStrings(VISIT_TYPE_OPTIONS, fromRows)
+  }, [rawRows])
+
+  const cooperationLevels = useMemo(() => {
+    const fromRows: string[] = []
+    for (const r of rawRows ?? []) {
+      const t = (r.family_cooperation_level ?? '').trim()
+      if (t) fromRows.push(t)
+    }
+    return mergeSortedStrings(COOPERATION_OPTIONS, fromRows)
   }, [rawRows])
 
   const outcomes = useMemo(() => {
-    const s = new Set<string>()
+    const fromRows: string[] = []
     for (const r of rawRows ?? []) {
       const t = (r.visit_outcome ?? '').trim()
-      if (t) s.add(t)
+      if (t) fromRows.push(t)
     }
-    return [...s].sort((a, b) => a.localeCompare(b))
+    return mergeSortedStrings(OUTCOME_OPTIONS, fromRows)
   }, [rawRows])
 
   const filtered = useMemo(() => {
@@ -601,9 +637,6 @@ export function VisitationsPage() {
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Resident</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Worker</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Type</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Cooperation</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Safety</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Outcome</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Details</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Actions</th>
                 </tr>
@@ -618,9 +651,6 @@ export function VisitationsPage() {
                     <td className="px-4 py-3 text-[var(--wt-text)] font-medium whitespace-nowrap">{residentLabel(r)}</td>
                     <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{r.social_worker ?? '—'}</td>
                     <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.visit_type ?? '—'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{r.family_cooperation_level ?? '—'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.safety_concerns_noted ? 'Yes' : 'No'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.visit_outcome ?? '—'}</td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
@@ -652,7 +682,7 @@ export function VisitationsPage() {
                 ))}
                 {pagedRows.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">
                       No visitations found.
                     </td>
                   </tr>
@@ -801,26 +831,66 @@ export function VisitationsPage() {
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
                 Social worker
-                <input value={draft.social_worker ?? ''} onChange={(e) => setDraft((d) => ({ ...d, social_worker: e.target.value }))} className={inputClass} />
+                <select
+                  value={draft.social_worker ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, social_worker: e.target.value }))}
+                  className={inputClass}
+                >
+                  <option value="">—</option>
+                  {socialWorkers.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
                 Visit type
-                <input value={draft.visit_type ?? ''} onChange={(e) => setDraft((d) => ({ ...d, visit_type: e.target.value }))} className={inputClass} />
+                <select
+                  value={draft.visit_type ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, visit_type: e.target.value }))}
+                  className={inputClass}
+                >
+                  <option value="">—</option>
+                  {visitTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
                 Cooperation level
-                <input
+                <select
                   value={draft.family_cooperation_level ?? ''}
                   onChange={(e) => setDraft((d) => ({ ...d, family_cooperation_level: e.target.value }))}
                   className={inputClass}
-                />
+                >
+                  <option value="">—</option>
+                  {cooperationLevels.map((lvl) => (
+                    <option key={lvl} value={lvl}>
+                      {lvl}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
                 Outcome
-                <input value={draft.visit_outcome ?? ''} onChange={(e) => setDraft((d) => ({ ...d, visit_outcome: e.target.value }))} className={inputClass} />
+                <select
+                  value={draft.visit_outcome ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, visit_outcome: e.target.value }))}
+                  className={inputClass}
+                >
+                  <option value="">—</option>
+                  {outcomes.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
