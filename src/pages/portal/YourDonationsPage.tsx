@@ -524,58 +524,6 @@ export function YourDonationsPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Year-to-date giving ({reportYear})</h2>
-            <p className="text-sm text-[var(--wt-text-2)] mt-1 max-w-2xl leading-relaxed">
-              Summary of gifts recorded in your account for the calendar year. Download a report for your tax preparer or
-              records. This is not tax advice; keep official bank or processor statements as needed. Organization: Lighthouse
-              Sanctuary, EIN {ORG.ein}.
-            </p>
-            <dl className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-3">
-                <dt className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Gifts this year</dt>
-                <dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--wt-text)]">{ytdMonetary.count}</dd>
-              </div>
-              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-3 sm:col-span-2">
-                <dt className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">
-                  Monetary total (≈ {currency})
-                </dt>
-                <dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--wt-text)]">
-                  {formatMoney(currency, ytdMonetary.sum)}
-                </dd>
-                {ytdMonetary.excluded > 0 && (
-                  <p className="text-xs text-[var(--wt-text-2)] mt-1">
-                    Some amounts excluded from this total (missing FX); full detail is in the downloads.
-                  </p>
-                )}
-              </div>
-            </dl>
-          </div>
-          <div className="flex flex-col gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => downloadYtdHtml()}
-              disabled={ytdDonations.length === 0}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-2.5 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_14%,transparent)] disabled:opacity-40 disabled:pointer-events-none transition-colors"
-            >
-              <Download className="h-4 w-4 shrink-0" aria-hidden />
-              Download YTD report (HTML)
-            </button>
-            <button
-              type="button"
-              onClick={() => downloadYtdCsv()}
-              disabled={ytdDonations.length === 0}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-2.5 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_14%,transparent)] disabled:opacity-40 disabled:pointer-events-none transition-colors"
-            >
-              <FileSpreadsheet className="h-4 w-4 shrink-0" aria-hidden />
-              Download YTD (CSV)
-            </button>
-          </div>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
           <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Donation Allocation</h2>
@@ -658,6 +606,58 @@ export function YourDonationsPage() {
             </table>
           </div>
         )}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Year-to-date giving ({reportYear})</h2>
+            <p className="text-sm text-[var(--wt-text-2)] mt-1 max-w-2xl leading-relaxed">
+              Summary of gifts recorded in your account for the calendar year. Download a report for your tax preparer or
+              records. This is not tax advice; keep official bank or processor statements as needed. Organization: Lighthouse
+              Sanctuary, EIN {ORG.ein}.
+            </p>
+            <dl className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-3">
+                <dt className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Gifts this year</dt>
+                <dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--wt-text)]">{ytdMonetary.count}</dd>
+              </div>
+              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-3 sm:col-span-2">
+                <dt className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">
+                  Monetary total (≈ {currency})
+                </dt>
+                <dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--wt-text)]">
+                  {formatMoney(currency, ytdMonetary.sum)}
+                </dd>
+                {ytdMonetary.excluded > 0 && (
+                  <p className="text-xs text-[var(--wt-text-2)] mt-1">
+                    Some amounts excluded from this total (missing FX); full detail is in the downloads.
+                  </p>
+                )}
+              </div>
+            </dl>
+          </div>
+          <div className="flex flex-col gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => downloadYtdHtml()}
+              disabled={ytdDonations.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-2.5 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_14%,transparent)] disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            >
+              <Download className="h-4 w-4 shrink-0" aria-hidden />
+              Download YTD report (HTML)
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadYtdCsv()}
+              disabled={ytdDonations.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-2.5 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_14%,transparent)] disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            >
+              <FileSpreadsheet className="h-4 w-4 shrink-0" aria-hidden />
+              Download YTD (CSV)
+            </button>
+          </div>
         </div>
       </div>
 
