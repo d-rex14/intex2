@@ -47,7 +47,7 @@ const RECENT_POSTS = [
     href: `${ORG.legacySite}/2025/05/11/highs-and-lows-of-lighthouse/`,
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/09/372419701_1269541816887826_2749329426990876735_n.jpg',
     excerpt:
-      'Iâ€™ve struggled to write a blog for some time because I so desperately want to encapsulate everything Watchtower isâ€”but thatâ€™s not possible.',
+      "I've struggled to write a blog for some time because I so desperately want to encapsulate everything Watchtower is - but that's not possible.",
   },
   {
     id: 'the-power-of-light',
@@ -56,7 +56,7 @@ const RECENT_POSTS = [
     href: `${ORG.legacySite}/2024/12/11/the-power-of-light/`,
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2025/03/DSC00649-scaled-e1743538384800.jpg',
     excerpt:
-      'I took a phone call recently that inspired this blog. A potential donor called, eager to help the survivors at Watchtowerâ€¦',
+      'I took a phone call recently that inspired this blog. A potential donor called, eager to help the survivors at Watchtower...',
   },
   {
     id: 'thankful-to-celebrate-5-years',
@@ -65,7 +65,7 @@ const RECENT_POSTS = [
     href: `${ORG.legacySite}/2023/09/12/thankful-to-celebrate-5-years/`,
     img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/09/img_0ae5140b8863-1.jpeg',
     excerpt:
-      'Itâ€™s been 5 years since we opened the doors to Watchtower Sanctuary here in the Philippines.',
+      "It's been 5 years since we opened the doors to Watchtower Sanctuary here in the Philippines.",
   },
 ] as const
 
@@ -127,7 +127,7 @@ export function HomePage() {
               },
               {
                 title: 'Justice',
-                text: 'Watchtower does not encourage or discourage children to file casesâ€”we support them in pursuing what justice means for them.',
+                text: 'Watchtower does not encourage or discourage children to file cases - we support them in pursuing what justice means for them.',
                 icon: justiceIcon,
                 shape: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/08/service-shape-03.png',
                 to: '/justice',
@@ -151,7 +151,7 @@ export function HomePage() {
                 <h3 className="font-display text-lg font-bold text-[var(--wt-text)]">{item.title}</h3>
                 <p className="mt-2 text-sm text-[var(--wt-text-2)] leading-relaxed">{item.text}</p>
                 <Link to={item.to} className="mt-3 inline-block text-sm font-semibold text-[var(--wt-accent)] hover:underline">
-                  Learn more â†’
+                  Learn more &rarr;
                 </Link>
               </div>
             ))}
@@ -194,7 +194,7 @@ export function HomePage() {
             />
             <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-accent-2)] p-4 flex items-center">
               <p className="text-sm font-medium text-[var(--wt-text)] italic leading-relaxed">
-                â€œWatchtower is a safe place, where we are treated as familyâ€
+                "Watchtower is a safe place, where we are treated as family"
               </p>
             </div>
           </div>
@@ -272,7 +272,7 @@ export function HomePage() {
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
             <h2 className="font-display text-2xl sm:text-3xl font-bold">Recent posts</h2>
             <Link to="/blog" className="text-sm font-semibold text-[var(--wt-accent)] hover:underline">
-              View all â†’
+              View all &rarr;
             </Link>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
@@ -288,7 +288,7 @@ export function HomePage() {
                   </h3>
                   <p className="mt-2 text-sm text-[var(--wt-text-2)] leading-relaxed flex-1">{post.excerpt}</p>
                   <Link to={`/blog#${post.id}`} className="mt-4 text-sm font-semibold text-[var(--wt-accent)]">
-                    Read on blog â†’
+                    Read on blog &rarr;
                   </Link>
                 </div>
               </article>
