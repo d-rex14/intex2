@@ -106,10 +106,9 @@ export function RecordedDonationForm() {
       className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6 space-y-4"
     >
       <div>
-        <h2 className="font-display text-xl font-bold text-[var(--wt-text)]">Record a contribution (demo)</h2>
+        <h2 className="font-display text-xl font-bold text-[var(--wt-text)]">Record a contribution</h2>
         <p className="mt-1 text-sm text-[var(--wt-text-2)] leading-relaxed">
-          This does not charge a real card — it saves a sample donation to Watchtower&apos;s database for the portal and
-          reports. Optional: sign in first so the same email can see history under Donors &amp; Contributions.
+          Input your donation information below.
         </p>
       </div>
 
