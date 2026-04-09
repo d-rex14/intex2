@@ -300,6 +300,56 @@ Deno.serve(async (req) => {
         return json(req, { ok: true })
       }
 
+      case "create_resident": {
+        const payload = (body.payload ?? {}) as Record<string, unknown>
+        const { data: inserted, error: insertErr } = await adminClient
+          .from("residents")
+          .insert({
+            safehouse_id: (payload.safehouse_id as number | null) ?? null,
+            case_status: (payload.case_status as string | null) ?? null,
+            sex: (payload.sex as string | null) ?? null,
+            case_category: (payload.case_category as string | null) ?? null,
+            date_of_admission: (payload.date_of_admission as string | null) ?? null,
+            assigned_social_worker: (payload.assigned_social_worker as string | null) ?? null,
+            referral_source: (payload.referral_source as string | null) ?? null,
+            referring_agency_person: (payload.referring_agency_person as string | null) ?? null,
+            reintegration_type: (payload.reintegration_type as string | null) ?? null,
+            reintegration_status: (payload.reintegration_status as string | null) ?? null,
+            current_risk_level: (payload.current_risk_level as string | null) ?? null,
+            initial_risk_level: (payload.current_risk_level as string | null) ?? null,
+            sub_cat_trafficked: Boolean(payload.sub_cat_trafficked),
+            sub_cat_physical_abuse: Boolean(payload.sub_cat_physical_abuse),
+            sub_cat_sexual_abuse: Boolean(payload.sub_cat_sexual_abuse),
+            sub_cat_child_labor: Boolean(payload.sub_cat_child_labor),
+            sub_cat_orphaned: Boolean(payload.sub_cat_orphaned),
+            sub_cat_at_risk: Boolean(payload.sub_cat_at_risk),
+            is_pwd: Boolean(payload.is_pwd),
+            pwd_type: (payload.pwd_type as string | null) ?? null,
+            has_special_needs: Boolean(payload.has_special_needs),
+            special_needs_diagnosis: (payload.special_needs_diagnosis as string | null) ?? null,
+            family_is_4ps: Boolean(payload.family_is_4ps),
+            family_solo_parent: Boolean(payload.family_solo_parent),
+            family_indigenous: Boolean(payload.family_indigenous),
+            family_informal_settler: Boolean(payload.family_informal_settler),
+            case_control_no: (payload.case_control_no as string | null) ?? null,
+          })
+          .select("resident_id")
+          .single()
+        if (insertErr || !inserted?.resident_id) {
+          return json(req, { error: insertErr?.message ?? "Failed to create resident" }, 400)
+        }
+        const residentId = inserted.resident_id as number
+        const internalCode = `LS-${String(residentId).padStart(4, "0")}`
+        const { error: codeErr } = await adminClient
+          .from("residents")
+          .update({ internal_code: internalCode })
+          .eq("resident_id", residentId)
+        if (codeErr) {
+          return json(req, { error: codeErr.message }, 400)
+        }
+        return json(req, { ok: true, resident_id: residentId, internal_code: internalCode })
+      }
+
       default:
         return json(req, { error: "Unknown action" }, 400)
     }

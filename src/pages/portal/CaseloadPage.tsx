@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
@@ -309,12 +309,44 @@ function toDraft(r?: Resident): ResidentDraft {
   }
 }
 
-function formatInternalCode(residentId: number): string {
-  return `LS-${String(residentId).padStart(4, '0')}`
-}
-
 function randomCaseControlNo(): string {
   return `C${Math.floor(1000 + Math.random() * 9000)}`
+}
+
+async function invokeAdminResidentCreate(
+  payload: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!supabase) return { ok: false, error: 'Supabase is not configured.' }
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession()
+  if (!session) {
+    return { ok: false, error: sessionError?.message ?? 'You must be signed in to create residents.' }
+  }
+  const baseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '')
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  if (!baseUrl || !anonKey) return { ok: false, error: 'Supabase URL or anon key is not configured.' }
+  try {
+    const token = session.access_token
+    const response = await fetch(`${baseUrl}/functions/v1/admin-site-users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: anonKey,
+        Authorization: `Bearer ${token}`,
+        'X-Supabase-Access-Token': token,
+      },
+      body: JSON.stringify({ action: 'create_resident', payload }),
+    })
+    const text = await response.text()
+    const data = text ? (JSON.parse(text) as { error?: string }) : {}
+    if (!response.ok) return { ok: false, error: data.error ?? `Request failed (${response.status})` }
+    if (data.error) return { ok: false, error: data.error }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
 }
 
 async function fetchResidents(): Promise<{ data: Resident[] | null; error: { message: string } | null }> {
@@ -628,23 +660,33 @@ export function CaseloadPage() {
         setSaving(false)
         return
       }
-      const { data: inserted, error } = await supabase
-        .from('residents')
-        .insert({
-          ...payload,
-          case_control_no: caseControlNo,
-          initial_risk_level: payload.current_risk_level,
-        })
-        .select('resident_id')
-        .single()
-      if (!error && inserted?.resident_id != null) {
-        const { error: codeError } = await supabase
-          .from('residents')
-          .update({ internal_code: formatInternalCode(inserted.resident_id) })
-          .eq('resident_id', inserted.resident_id)
-        dbError = codeError?.message ?? null
+      const createRes = await invokeAdminResidentCreate({
+        ...payload,
+        case_control_no: caseControlNo,
+      })
+      if (createRes.ok) {
+        dbError = null
       } else {
-        dbError = error?.message ?? null
+        // Fallback for environments where the edge function is not deployed/allowed.
+        const { data: inserted, error } = await supabase
+          .from('residents')
+          .insert({
+            ...payload,
+            case_control_no: caseControlNo,
+            initial_risk_level: payload.current_risk_level,
+          })
+          .select('resident_id')
+          .single()
+        if (!error && inserted?.resident_id != null) {
+          const code = `LS-${String(inserted.resident_id).padStart(4, '0')}`
+          const { error: codeError } = await supabase
+            .from('residents')
+            .update({ internal_code: code })
+            .eq('resident_id', inserted.resident_id)
+          dbError = codeError?.message ?? null
+        } else {
+          dbError = createRes.error || error?.message || null
+        }
       }
     } else {
       const { error } = await supabase.from('residents').update(payload).eq('resident_id', editingId)
@@ -825,40 +867,18 @@ export function CaseloadPage() {
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closeForm} role="presentation">
-          <div className="w-full max-w-3xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b border-[var(--wt-border)]">
+          <div className="w-full max-w-3xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
+            <div className="p-6 border-b border-[var(--wt-border)] flex items-start justify-between gap-4">
+              <div>
               <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">{editingId == null ? 'Create Resident' : `Edit Resident #${editingId}`}</h2>
               <p className="text-sm text-[var(--wt-text-2)] mt-1">Update demographics, case categories, disability, family profile, and reintegration tracking.</p>
+              </div>
+              <button type="button" onClick={closeForm} className="rounded-lg border border-[var(--wt-border)] p-2 text-[var(--wt-text-2)] hover:text-[var(--wt-text)]">
+                <X size={16} />
+              </button>
             </div>
             <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Case control no
-                <input
-                  value={editingId == null ? 'Auto-generated on save' : ((residents ?? []).find(r => r.resident_id === editingId)?.case_control_no ?? '—')}
-                  disabled
-                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text-2)]"
-                />
-              </label>
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Internal code
-                <input
-                  value={editingId == null ? 'Auto-generated from resident ID' : ((residents ?? []).find(r => r.resident_id === editingId)?.internal_code ?? '—')}
-                  disabled
-                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text-2)]"
-                />
-              </label>
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Case control no
-                <input
-                  value={editingId == null ? 'Auto-generated on save' : ((residents ?? []).find(r => r.resident_id === editingId)?.case_control_no ?? '—')}
-                  disabled
-                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text-2)]"
-                />
-              </label>
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Internal code
-                <input
-                  value={editingId == null ? 'Auto-generated from resident ID' : ((residents ?? []).find(r => r.resident_id === editingId)?.internal_code ?? '—')}
-                  disabled
-                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text-2)]"
-                />
-              </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Safehouse
                 <select value={draft.safehouse_id} onChange={e => setDraft(d => ({ ...d, safehouse_id: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">
                   <option value="">—</option>
@@ -961,6 +981,7 @@ export function CaseloadPage() {
               <button type="button" disabled={saving} onClick={() => void saveResident()} className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
                 {saving ? 'Saving…' : 'Save resident'}
               </button>
+            </div>
             </div>
           </div>
         </div>
