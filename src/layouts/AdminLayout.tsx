@@ -145,23 +145,29 @@ export function AdminLayout() {
     }
   }, []);
 
-  const syncAdminDonationLogs = useCallback(async () => {
-    if (!supabase || role !== 'admin') return;
+  const syncAdminDonationLogs = useCallback(async (): Promise<boolean> => {
+    if (!supabase || role !== 'admin') return false;
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
     const baseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '');
     const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-    if (!token || !baseUrl || !anonKey) return;
-    await fetch(`${baseUrl}/functions/v1/admin-site-users`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: anonKey,
-        Authorization: `Bearer ${token}`,
-        'X-Supabase-Access-Token': token,
-      },
-      body: JSON.stringify({ action: 'sync_donation_logs' }),
-    });
+    if (!token || !baseUrl || !anonKey) return false;
+    try {
+      const res = await fetch(`${baseUrl}/functions/v1/admin-site-users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: anonKey,
+          Authorization: `Bearer ${token}`,
+          'X-Supabase-Access-Token': token,
+        },
+        body: JSON.stringify({ action: 'sync_donation_logs' }),
+      });
+      if (!res.ok) return false;
+      return true;
+    } catch {
+      return false;
+    }
   }, [role]);
 
   useEffect(() => {
@@ -169,7 +175,11 @@ export function AdminLayout() {
   }, [refreshNotifications]);
 
   useEffect(() => {
-    if (role === 'admin') void syncAdminDonationLogs().then(() => refreshNotifications());
+    if (role !== 'admin') return;
+    void (async () => {
+      const synced = await syncAdminDonationLogs();
+      if (synced) await refreshNotifications();
+    })();
   }, [role, syncAdminDonationLogs, refreshNotifications]);
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
