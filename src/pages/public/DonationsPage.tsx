@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from 'react'
+import { X } from 'lucide-react'
 import { ORG } from '../../content/org'
 import { RecordedDonationForm } from '../../components/RecordedDonationForm'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
-import { BASE_CURRENCY, convertCurrency, SUPPORTED_CURRENCIES } from '../../lib/fxRates'
+import { BASE_CURRENCY } from '../../lib/fxRates'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
 type AllocationRow = {
@@ -11,11 +12,6 @@ type AllocationRow = {
 }
 
 const DONUT_COLORS = ['#475569', '#c59a54', '#6b7280', '#c2b89c', '#f59e0b', '#94a3b8'] as const
-
-function formatMoney(currencyCode: string, n: number): string {
-  const cur = (currencyCode || BASE_CURRENCY).trim().toUpperCase() || BASE_CURRENCY
-  return `${cur} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 async function fetchAllocations(): Promise<{
   data: AllocationRow[] | null
@@ -35,13 +31,11 @@ function AllocationDonutChart({
   centerLabel,
   centerSubtext,
   data,
-  currency,
 }: {
   title: string
   centerLabel: string
   centerSubtext: string
   data: { label: string; value: number; color: string }[]
-  currency: string
 }) {
   const total = data.reduce((sum, d) => sum + d.value, 0)
   const size = 280
@@ -65,7 +59,6 @@ function AllocationDonutChart({
 
   const [hover, setHover] = useState<{
     label: string
-    value: number
     frac: number
     x: number
     y: number
@@ -104,7 +97,6 @@ function AllocationDonutChart({
                 const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect()
                 setHover({
                   label: seg.label,
-                  value: seg.value,
                   frac: seg.frac,
                   x: e.clientX - rect.left,
                   y: e.clientY - rect.top,
@@ -145,9 +137,7 @@ function AllocationDonutChart({
           }}
         >
           <div className="font-semibold">{hover.label}</div>
-          <div className="text-[var(--wt-text-2)] mt-0.5">
-            {formatMoney(currency, hover.value)} • {(hover.frac * 100).toFixed(1)}%
-          </div>
+          <div className="text-[var(--wt-text-2)] mt-0.5 tabular-nums">{(hover.frac * 100).toFixed(1)}%</div>
         </div>
       )}
     </div>
@@ -155,7 +145,7 @@ function AllocationDonutChart({
 }
 
 export function DonationsPage() {
-  const [currency, setCurrency] = useState<string>(BASE_CURRENCY)
+  const [donateOpen, setDonateOpen] = useState(false)
 
   const allocationsQueryFn = useCallback(() => fetchAllocations(), [])
   const { data: allocationRows, loading: allocationsLoading, error: allocationsError } =
@@ -173,20 +163,25 @@ export function DonationsPage() {
     const entries = [...m.entries()].sort((a, b) => b[1] - a[1])
     return entries.map(([label, value], i) => ({
       label,
-      value:
-        convertCurrency(value, BASE_CURRENCY, currency).converted ??
-        value,
+      value,
       color: DONUT_COLORS[i % DONUT_COLORS.length],
     }))
-  }, [allocationRows, currency])
+  }, [allocationRows])
 
-  const allocatedTotal = useMemo(() => {
-    return resourcesFunded.reduce((sum, d) => sum + d.value, 0)
-  }, [resourcesFunded])
+  const allocatedTotal = useMemo(() => resourcesFunded.reduce((sum, d) => sum + d.value, 0), [resourcesFunded])
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="font-display text-3xl sm:text-4xl font-bold text-[var(--wt-text)] tracking-tight">Donations</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <h1 className="font-display text-3xl sm:text-4xl font-bold text-[var(--wt-text)] tracking-tight">Donations</h1>
+        <button
+          type="button"
+          onClick={() => setDonateOpen(true)}
+          className="shrink-0 rounded-lg bg-[var(--wt-accent)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors w-full sm:w-auto"
+        >
+          Make a Donation
+        </button>
+      </div>
       <div className="mt-8 max-w-3xl space-y-6 text-[var(--wt-text)] leading-relaxed">
         <p>
           Watchtower Sanctuary is a 501(c)(3) (EIN {ORG.ein}) organization that focuses on safety and healing for
@@ -213,28 +208,10 @@ export function DonationsPage() {
       <section className="mt-14 rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6 md:p-8">
         <h2 className="font-display text-xl font-bold text-[var(--wt-text)]">Where your support goes</h2>
         <p className="mt-3 text-sm text-[var(--wt-text-2)] leading-relaxed max-w-3xl">
-          We publish how donations are allocated across program areas so supporters can see how funds support shelter
-          operations, care, education, and reintegration. The chart below shows recorded allocations from our internal
-          database. Amounts are shown in your selected display currency using static exchange rates; the underlying
-          records are maintained in {BASE_CURRENCY}. If no allocation data is available yet, check back after our team
-          updates the records.
+          The chart shows the percentage share of recorded allocations by program area (internal records in {BASE_CURRENCY}).
+          Hover a segment to see its share of the total. This view is for transparency only and does not display dollar
+          amounts. If no data appears yet, our team may still be updating allocation records.
         </p>
-        <div className="mt-6 flex flex-wrap items-center gap-4">
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Display currency</span>
-            <select
-              value={currency}
-              onChange={e => setCurrency(e.target.value)}
-              className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]"
-            >
-              {SUPPORTED_CURRENCIES.map(c => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
         <div className="mt-8 flex justify-center">
           {!isSupabaseConfigured ? (
             <p className="text-sm text-[var(--wt-text-2)]">Connect Supabase to load allocation data.</p>
@@ -253,18 +230,45 @@ export function DonationsPage() {
           ) : (
             <AllocationDonutChart
               title="Donation allocation by program area"
-              centerLabel={allocatedTotal > 0 ? formatMoney(currency, allocatedTotal) : '—'}
-              centerSubtext="ALLOCATED (TOTAL)"
+              centerLabel={allocatedTotal > 0 ? '100%' : '—'}
+              centerSubtext="FULL DISTRIBUTION"
               data={resourcesFunded}
-              currency={currency}
             />
           )}
         </div>
       </section>
 
-      <div className="mt-12 max-w-xl mx-auto">
-        <RecordedDonationForm />
-      </div>
+      {donateOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          role="presentation"
+          onClick={() => setDonateOpen(false)}
+        >
+          <div
+            className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl overflow-hidden"
+            role="dialog"
+            aria-labelledby="donation-form-title"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[var(--wt-border)] bg-[var(--wt-bg)] px-5 py-4">
+              <h2 id="donation-form-title" className="font-display text-lg font-bold text-[var(--wt-text)]">
+                Make a donation
+              </h2>
+              <button
+                type="button"
+                onClick={() => setDonateOpen(false)}
+                className="rounded-lg border border-[var(--wt-border)] p-2 text-[var(--wt-text-2)] hover:text-[var(--wt-text)]"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5">
+              <RecordedDonationForm />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
