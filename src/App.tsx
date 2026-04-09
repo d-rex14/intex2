@@ -7,7 +7,6 @@ import { useAuth } from './context/AuthContext'
 import { supabase } from './lib/supabase'
 import { AboutPage } from './pages/public/AboutPage'
 import { BlogPage } from './pages/public/BlogPage'
-import { ContactPage } from './pages/public/ContactPage'
 import { DonationsPage } from './pages/public/DonationsPage'
 import { HomePage } from './pages/public/HomePage'
 import { BoardMemberPage } from './pages/public/BoardMemberPage'
@@ -110,13 +109,34 @@ function PrivacyPage() {
           </div>
 
           <div className={sectionCls}>
-            <h2 className={headingCls}>5. Cookies</h2>
+            <h2 className={headingCls}>5. Cookies and similar technologies</h2>
             <p className={textCls}>
-              We use <strong>essential cookies only</strong>. These keep you signed in and store
-              your cookie consent preference. We do not use advertising, analytics, or third-party
-              tracking cookies. You can manage your cookie preferences at any time via the cookie
-              consent banner. Declining cookies will prevent authentication-related cookies from
-              being set; however, our site will still function for public pages.
+              This website and the Watchtower portal use a small number of first-party cookies so the
+              program works reliably in your browser. We do not use advertising cookies, social
+              trackers, or third-party analytics scripts. You can refuse non-essential cookies via the
+              cookie banner; some features (sign-in, remembered theme) may be limited if you decline.
+            </p>
+            <p className={`${textCls} mt-3 font-medium text-[var(--wt-text)]`}>Cookies used by this program</p>
+            <ul className={listCls}>
+              <li>
+                <strong>Consent preference</strong> (<code className="text-[var(--wt-text)]">watchtower_cookie_consent</code>)
+                — Stores whether you accepted or declined the cookie notice. Duration: up to 1 year.
+                Path: site-wide. SameSite=Lax.
+              </li>
+              <li>
+                <strong>Theme (light / dark mode)</strong> (<code className="text-[var(--wt-text)]">watchtower_theme</code>)
+                — Remembers your display preference on the public site and in the portal. Duration: up
+                to 1 year. Path: site-wide. SameSite=Lax.
+              </li>
+              <li>
+                <strong>Authentication session</strong> — When you sign in, our authentication provider
+                (Supabase) may set HTTP-only or secure cookies so your session stays active. These are
+                necessary to use the portal and are not used for marketing.
+              </li>
+            </ul>
+            <p className={`${textCls} mt-3`}>
+              You can clear cookies at any time through your browser settings. Clearing cookies will
+              sign you out of the portal and reset your theme and consent choices on this device.
             </p>
           </div>
 
@@ -617,7 +637,7 @@ export function App() {
           <Route path="blog" element={<BlogPage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="board/:slug" element={<BoardMemberPage />} />
-          <Route path="contact" element={<ContactPage />} />
+          <Route path="contact" element={<Navigate to="/about" replace />} />
           <Route path="donations" element={<DonationsPage />} />
           <Route path="safety" element={<SafetyPage />} />
           <Route path="healing" element={<HealingPage />} />

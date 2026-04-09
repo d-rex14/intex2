@@ -17,7 +17,6 @@ export function PublicLayout() {
       { to: '/', label: 'Home' },
       { to: '/blog', label: 'Blog' },
       { to: '/about', label: 'About' },
-      { to: '/contact', label: 'Contact' },
       { to: '/donations', label: 'Donations' },
     ]
     return publicLinks
