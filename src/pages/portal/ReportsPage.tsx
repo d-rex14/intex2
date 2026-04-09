@@ -34,6 +34,16 @@ type StrategyRow = {
 
 type UpgradeBandSummary = { band: string; count: number; avg_score: number }
 
+type StallRiskBandSummary = { band: string; count: number }
+
+type SocialMLScore = {
+  platform: string | null
+  content_type: string | null
+  predicted_engagement_rate: number | null
+  predicted_donation_referrals: number | null
+  recommendation: string | null
+}
+
 // ---------------------------------------------------------------------------
 // Data fetchers
 // ---------------------------------------------------------------------------
@@ -76,6 +86,35 @@ async function fetchUpgradeBands(): Promise<{ data: UpgradeBandSummary[] | null;
       return { band: b, count: g.count, avg_score: g.total / g.count }
     })
   return { data: summary, error: null }
+}
+
+async function fetchStallRiskBands(): Promise<{ data: StallRiskBandSummary[] | null; error: { message: string } | null }> {
+  if (!supabase) return { data: null, error: { message: 'Supabase not configured.' } }
+  const { data, error } = await supabase
+    .from('resident_ml_scores')
+    .select('stall_risk_band')
+    .not('stall_risk_band', 'is', null)
+  if (error) return { data: null, error: { message: error.message } }
+  const rows = (data ?? []) as { stall_risk_band: string }[]
+  const counts = new Map<string, number>()
+  for (const r of rows) {
+    counts.set(r.stall_risk_band, (counts.get(r.stall_risk_band) ?? 0) + 1)
+  }
+  const summary: StallRiskBandSummary[] = ['High', 'Medium', 'Low']
+    .filter(b => counts.has(b))
+    .map(b => ({ band: b, count: counts.get(b)! }))
+  return { data: summary, error: null }
+}
+
+async function fetchSocialMLScores(): Promise<{ data: SocialMLScore[] | null; error: { message: string } | null }> {
+  if (!supabase) return { data: null, error: { message: 'Supabase not configured.' } }
+  const { data, error } = await supabase
+    .from('social_media_ml_scores')
+    .select('platform, content_type, predicted_engagement_rate, predicted_donation_referrals, recommendation')
+    .order('predicted_engagement_rate', { ascending: false })
+    .limit(10)
+  if (error) return { data: null, error: { message: error.message } }
+  return { data: (data ?? []) as SocialMLScore[], error: null }
 }
 
 // ---------------------------------------------------------------------------
@@ -261,6 +300,79 @@ function SocialStrategyChart({ data }: { data: StrategyRow[] }) {
   )
 }
 
+function StallRiskBarChart({ data }: { data: StallRiskBandSummary[] }) {
+  const max = Math.max(1, ...data.map(d => d.count))
+  const barCls: Record<string, string> = {
+    High: 'bg-red-500/80',
+    Medium: 'bg-zinc-400/70',
+    Low: 'bg-emerald-500/80',
+  }
+  return (
+    <div className="space-y-3 mt-2">
+      {data.map(d => (
+        <div key={d.band} className="grid grid-cols-[5rem_1fr_3rem] items-center gap-3">
+          <BandPill band={d.band} type="churn" />
+          <div className="h-3 rounded-full bg-[var(--wt-border)] overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${barCls[d.band] ?? 'bg-zinc-400/70'}`}
+              style={{ width: `${(d.count / max) * 100}%` }}
+            />
+          </div>
+          <span className="text-xs tabular-nums text-[var(--wt-text-2)] text-right">{d.count}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SocialMLTable({ data }: { data: SocialMLScore[] }) {
+  const max = Math.max(0.001, ...data.map(d => d.predicted_engagement_rate ?? 0))
+  return (
+    <div className="space-y-3 mt-2">
+      <div className="grid grid-cols-[6rem_6rem_1fr_4.5rem_4rem] gap-2 text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] pb-1 border-b border-[var(--wt-border)]">
+        <span>Platform</span>
+        <span>Content type</span>
+        <span>Pred. engagement</span>
+        <span className="text-right">Eng. rate</span>
+        <span className="text-right">Pred. refs</span>
+      </div>
+      {data.map((d, i) => (
+        <div key={i} className="space-y-1">
+          <div className="grid grid-cols-[6rem_6rem_1fr_4.5rem_4rem] items-center gap-2">
+            <span
+              className="text-xs font-semibold truncate"
+              style={{ color: PLATFORM_COLOR[d.platform ?? ''] ?? '#f59e0b' }}
+            >
+              {d.platform ?? '—'}
+            </span>
+            <span className="text-xs text-[var(--wt-text-2)] truncate">{d.content_type ?? '—'}</span>
+            <div className="h-3 rounded-full bg-[var(--wt-border)] overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${((d.predicted_engagement_rate ?? 0) / max) * 100}%`,
+                  backgroundColor: PLATFORM_COLOR[d.platform ?? ''] ?? '#f59e0b',
+                }}
+              />
+            </div>
+            <span className="text-xs tabular-nums text-right font-semibold text-[var(--wt-accent)]">
+              {((d.predicted_engagement_rate ?? 0) * 100).toFixed(1)}%
+            </span>
+            <span className="text-xs tabular-nums text-right text-[var(--wt-text-2)]">
+              {(d.predicted_donation_referrals ?? 0).toFixed(0)}
+            </span>
+          </div>
+          {d.recommendation && (
+            <p className="text-[10px] text-[var(--wt-text-2)] pl-0 leading-relaxed col-span-full">
+              <span className="text-[var(--wt-accent)] font-semibold">Tip:</span> {d.recommendation}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
@@ -277,6 +389,12 @@ export function ReportsPage() {
 
   const upgradeQFn = useMemo(() => () => fetchUpgradeBands(), [])
   const { data: upgradeBands, loading: upgradeLoading } = useSupabaseQuery(upgradeQFn)
+
+  const stallQFn = useMemo(() => () => fetchStallRiskBands(), [])
+  const { data: stallBands, loading: stallLoading } = useSupabaseQuery(stallQFn)
+
+  const socialMLQFn = useMemo(() => () => fetchSocialMLScores(), [])
+  const { data: socialMLScores, loading: socialMLLoading } = useSupabaseQuery(socialMLQFn)
 
   // Aggregate social posts into ranked platform × content-type combos
   const strategyData = useMemo<StrategyRow[]>(() => {
@@ -368,6 +486,37 @@ export function ReportsPage() {
         </SectionCard>
       )}
 
+      {/* Clinical efficacy — health stall risk distribution */}
+      {staff && (
+        <SectionCard
+          title="Clinical Efficacy — Health Stall Risk"
+          subtitle="Distribution of residents by predicted health-stall risk band. Source: 01_clinical_efficacy pipeline. High = flag for care plan review."
+        >
+          {stallLoading ? (
+            <Spinner />
+          ) : (stallBands ?? []).length === 0 ? (
+            <NoData message="No stall risk scores yet. Run the clinical_efficacy_pipeline notebook and export stall_risk_band to resident_ml_scores." />
+          ) : (
+            <>
+              <StallRiskBarChart data={stallBands!} />
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                {stallBands!.map(d => (
+                  <div key={d.band} className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-3 text-center">
+                    <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">{d.band} risk</div>
+                    <div className="text-xl font-bold text-[var(--wt-text)] tabular-nums">{d.count}</div>
+                    <div className="text-xs text-[var(--wt-text-2)]">residents</div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-[var(--wt-text-2)]">
+                Model precision for stall detection is exploratory (baseline recall ≈ 11%). Use as a conversation-starter
+                in supervision and case review—not as a standalone clinical trigger.
+              </p>
+            </>
+          )}
+        </SectionCard>
+      )}
+
       {/* Social media strategy performance chart */}
       {isSocialRep && (
         <SectionCard
@@ -380,6 +529,32 @@ export function ReportsPage() {
             <NoData message="No social media post data found." />
           ) : (
             <SocialStrategyChart data={strategyData} />
+          )}
+        </SectionCard>
+      )}
+
+      {/* ML-powered social media recommendations */}
+      {isSocialRep && (
+        <SectionCard
+          title="ML-Recommended Post Strategies"
+          subtitle="Top platform and content-type combinations ranked by predicted engagement rate. Source: 09_social_media_optimization pipeline."
+        >
+          {socialMLLoading ? (
+            <Spinner />
+          ) : (socialMLScores ?? []).length === 0 ? (
+            <NoData message="No ML scores yet. Run the social-media-optimization notebook and export to social_media_ml_scores." />
+          ) : (
+            <>
+              <SocialMLTable data={socialMLScores!} />
+              <div className="flex flex-wrap gap-4 mt-3 pt-3 border-t border-[var(--wt-border)]">
+                {Object.entries(PLATFORM_COLOR).map(([p, c]) => (
+                  <div key={p} className="flex items-center gap-1.5">
+                    <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
+                    <span className="text-[11px] text-[var(--wt-text-2)]">{p}</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </SectionCard>
       )}
