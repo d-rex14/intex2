@@ -30,6 +30,7 @@ import { ReportsPage } from './pages/portal/ReportsPage'
 import { SiteUsersPage } from './pages/portal/SiteUsersPage'
 import { YourDonationsPage } from './pages/portal/YourDonationsPage'
 import { VisitationsPage } from './pages/portal/VisitationsPage'
+import { SocialMediaPage } from './pages/portal/SocialMediaPage'
 
 function PageShell({
   title,
@@ -671,6 +672,7 @@ export function App() {
           <Route path="process-recordings" element={<ProcessRecordingsPage />} />
           <Route path="visitations" element={<VisitationsPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="social-media" element={<SocialMediaPage />} />
           <Route path="your-donations" element={<YourDonationsPage />} />
           <Route path="site-users" element={<SiteUsersPage />} />
         </Route>
