@@ -141,29 +141,59 @@ function BandBarChart({ data }: { data: UpgradeBandSummary[] }) {
   )
 }
 
-// Horizontal bar chart for safehouse value-add
+function formatSafehouseName(name: string | null, id: number) {
+  const raw = name ?? `Safehouse ${id}`
+  return raw.replace(/Lighthouse/gi, 'Watchtower')
+}
+
 function SafehouseBar({ data }: { data: SafehouseScore[] }) {
   const vals = data.map(d => d.value_add_coef ?? 0)
-  const absMax = Math.max(1, ...vals.map(Math.abs))
+  const absMax = Math.max(0.01, ...vals.map(Math.abs))
   return (
-    <div className="space-y-3 mt-2">
+    <div className="mt-2 space-y-1.5">
+      {/* Axis labels */}
+      <div className="grid grid-cols-[9rem_1fr_3.5rem] items-end gap-3 mb-2">
+        <span />
+        <div className="relative flex justify-between text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">
+          <span>← Below avg</span>
+          <span>0</span>
+          <span>Above avg →</span>
+        </div>
+        <span />
+      </div>
       {data.map(d => {
         const v = d.value_add_coef ?? 0
-        const pct = Math.abs(v) / absMax
+        const pct = (Math.abs(v) / absMax) * 50
         const positive = v >= 0
+        const label = formatSafehouseName(d.safehouse_name, d.safehouse_id)
         return (
-          <div key={d.safehouse_id} className="grid grid-cols-[10rem_1fr_4rem] items-center gap-3">
-            <span className="text-sm text-[var(--wt-text)] truncate" title={d.safehouse_name ?? `Safehouse ${d.safehouse_id}`}>
-              {d.safehouse_name ?? `Safehouse ${d.safehouse_id}`}
+          <div key={d.safehouse_id} className="grid grid-cols-[9rem_1fr_3.5rem] items-center gap-3">
+            <span
+              className="text-sm text-[var(--wt-text)] truncate text-right"
+              title={label}
+            >
+              {label}
             </span>
-            <div className="h-3 rounded-full bg-[var(--wt-border)] overflow-hidden">
+            <div className="relative h-5 rounded bg-[var(--wt-border)]/20">
+              <div className="absolute inset-y-0 left-1/2 w-px bg-[var(--wt-text-2)]/30" />
               <div
-                className={`h-full rounded-full transition-all ${positive ? 'bg-[var(--wt-accent)]' : 'bg-[#dc2626]/70'}`}
-                style={{ width: `${pct * 100}%` }}
+                className={`absolute top-0.5 bottom-0.5 rounded-sm transition-all ${
+                  positive ? 'bg-emerald-500/80' : 'bg-red-500/70'
+                }`}
+                style={
+                  positive
+                    ? { left: '50%', width: `${pct}%` }
+                    : { right: '50%', width: `${pct}%` }
+                }
               />
             </div>
-            <span className={`text-xs tabular-nums text-right ${positive ? 'text-[var(--wt-accent)]' : 'text-[#dc2626]'}`}>
-              {v > 0 ? '+' : ''}{v.toFixed(2)}
+            <span
+              className={`text-xs tabular-nums text-right font-medium ${
+                positive ? 'text-emerald-400' : 'text-red-400'
+              }`}
+            >
+              {v > 0 ? '+' : ''}
+              {v.toFixed(2)}
             </span>
           </div>
         )
