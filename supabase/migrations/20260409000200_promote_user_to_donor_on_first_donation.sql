@@ -80,9 +80,22 @@ end;
 $$;
 
 drop trigger if exists trg_promote_user_to_donor_on_donation on public.donations;
+drop function if exists public.promote_user_to_donor_on_donation_trigger();
+
+create or replace function public.promote_user_to_donor_on_donation_trigger()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  perform public.promote_user_to_donor_from_supporter(new.supporter_id);
+  return new;
+end;
+$$;
 
 create trigger trg_promote_user_to_donor_on_donation
 after insert on public.donations
 for each row
-execute function public.promote_user_to_donor_from_supporter(new.supporter_id);
+execute function public.promote_user_to_donor_on_donation_trigger();
 
