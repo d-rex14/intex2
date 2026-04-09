@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
 import { bandNeutralCls, bandPositiveBarCls, bandPositiveCls, bandWarningCls } from '../../lib/mlBandStyles'
@@ -18,15 +18,18 @@ type SafehouseScore = {
   scored_at: string
 }
 
-type SocialMediaRec = {
-  post_id: number | null
+type SocialPost = {
   platform: string | null
-  content_type: string | null
-  predicted_engagement_rate: number | null
-  predicted_donation_referrals: number | null
-  recommendation: string | null
-  model_version: string
-  scored_at: string
+  post_type: string | null
+  engagement_rate: number | null
+  donation_referrals: number | null
+}
+
+type StrategyRow = {
+  platform: string
+  contentType: string
+  avgEngagement: number
+  avgReferrals: number
 }
 
 type UpgradeBandSummary = { band: string; count: number; avg_score: number }
@@ -44,15 +47,14 @@ async function fetchSafehouseScores(): Promise<{ data: SafehouseScore[] | null; 
   return { data: (data ?? []) as SafehouseScore[], error: null }
 }
 
-async function fetchSocialRecs(): Promise<{ data: SocialMediaRec[] | null; error: { message: string } | null }> {
+async function fetchSocialStrategyData(): Promise<{ data: SocialPost[] | null; error: { message: string } | null }> {
   if (!supabase) return { data: null, error: { message: 'Supabase not configured.' } }
   const { data, error } = await supabase
-    .from('social_media_ml_scores')
-    .select('*')
-    .order('predicted_engagement_rate', { ascending: false })
-    .limit(10)
+    .from('social_media_posts')
+    .select('platform, post_type, engagement_rate, donation_referrals')
+    .limit(2000)
   if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as SocialMediaRec[], error: null }
+  return { data: (data ?? []) as SocialPost[], error: null }
 }
 
 async function fetchUpgradeBands(): Promise<{ data: UpgradeBandSummary[] | null; error: { message: string } | null }> {
@@ -79,9 +81,6 @@ async function fetchUpgradeBands(): Promise<{ data: UpgradeBandSummary[] | null;
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-const selectClass =
-  'rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]'
-
 function SectionCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-5">
@@ -173,74 +172,61 @@ function SafehouseBar({ data }: { data: SafehouseScore[] }) {
   )
 }
 
-// Post-scorer interactive form for social media
-function PostScorerForm() {
-  const [platform, setPlatform] = useState('Instagram')
-  const [contentType, setContentType] = useState('Photo')
-  const [boosted, setBoosted] = useState(false)
-  const [result, setResult] = useState<{ engagement: number; referrals: number } | null>(null)
+const PLATFORM_COLOR: Record<string, string> = {
+  Instagram: '#e1306c',
+  TikTok: '#69c9d0',
+  Facebook: '#1877f2',
+  Twitter: '#1da1f2',
+}
 
-  // Lightweight heuristic scoring for UI demo (real model served via notebook export / Edge Function in production)
-  const score = () => {
-    const platBoost: Record<string, number> = { Instagram: 1.2, Facebook: 1.0, Twitter: 0.85, TikTok: 1.35 }
-    const typeBoost: Record<string, number> = { Video: 1.4, Photo: 1.0, 'Text/Link': 0.7, Story: 1.15, Reel: 1.5 }
-    const base = 0.04 * (platBoost[platform] ?? 1.0) * (typeBoost[contentType] ?? 1.0) * (boosted ? 1.3 : 1.0)
-    const refs = Math.round(base * 25 * (contentType === 'Video' || contentType === 'Reel' ? 1.5 : 1.0))
-    setResult({ engagement: Math.min(0.3, base), referrals: refs })
-  }
-
+// Horizontal bar chart showing top platform × content-type combos by avg engagement
+function SocialStrategyChart({ data }: { data: StrategyRow[] }) {
+  const max = Math.max(0.001, ...data.map(d => d.avgEngagement))
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Platform</span>
-          <select className={selectClass} value={platform} onChange={e => setPlatform(e.target.value)}>
-            {['Instagram', 'Facebook', 'Twitter', 'TikTok'].map(p => <option key={p}>{p}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Content type</span>
-          <select className={selectClass} value={contentType} onChange={e => setContentType(e.target.value)}>
-            {['Photo', 'Video', 'Reel', 'Story', 'Text/Link'].map(t => <option key={t}>{t}</option>)}
-          </select>
-        </label>
-        <label className="flex items-end gap-2 pb-1">
-          <input
-            type="checkbox"
-            checked={boosted}
-            onChange={e => setBoosted(e.target.checked)}
-            className="rounded border-[var(--wt-border)] mb-2"
-          />
-          <span className="text-sm text-[var(--wt-text)]">Paid boost</span>
-        </label>
+    <div className="space-y-3 mt-2">
+      {/* Column headers */}
+      <div className="grid grid-cols-[7rem_6rem_1fr_4.5rem_4rem] gap-2 text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] pb-1 border-b border-[var(--wt-border)]">
+        <span>Platform</span>
+        <span>Content type</span>
+        <span></span>
+        <span className="text-right">Eng. rate</span>
+        <span className="text-right">Avg refs</span>
       </div>
-
-      <button
-        type="button"
-        onClick={score}
-        className="rounded-lg bg-[var(--wt-accent)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-      >
-        Score this post
-      </button>
-
-      {result && (
-        <div className="grid grid-cols-2 gap-4 mt-2">
-          <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Predicted engagement rate</div>
-            <div className="text-2xl font-bold text-[var(--wt-accent)] tabular-nums">{(result.engagement * 100).toFixed(1)}%</div>
+      {data.map((d, i) => (
+        <div key={i} className="grid grid-cols-[7rem_6rem_1fr_4.5rem_4rem] items-center gap-2">
+          <span
+            className="text-xs font-semibold truncate"
+            style={{ color: PLATFORM_COLOR[d.platform] ?? '#f59e0b' }}
+          >
+            {d.platform}
+          </span>
+          <span className="text-xs text-[var(--wt-text-2)] truncate">{d.contentType ?? '—'}</span>
+          <div className="h-3 rounded-full bg-[var(--wt-border)] overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${(d.avgEngagement / max) * 100}%`,
+                backgroundColor: PLATFORM_COLOR[d.platform] ?? '#f59e0b',
+              }}
+            />
           </div>
-          <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4">
-            <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Est. donation referrals</div>
-            <div className="text-2xl font-bold text-[var(--wt-text)] tabular-nums">{result.referrals}</div>
-          </div>
-          <div className="col-span-2">
-            <p className="text-xs text-[var(--wt-text-2)]">
-              Heuristic preview based on <code>social-media-optimization</code> pipeline feature importances.
-              Connect to the full model endpoint for production-accuracy scores.
-            </p>
-          </div>
+          <span className="text-xs tabular-nums text-right font-semibold text-[var(--wt-accent)]">
+            {(d.avgEngagement * 100).toFixed(1)}%
+          </span>
+          <span className="text-xs tabular-nums text-right text-[var(--wt-text-2)]">
+            {d.avgReferrals.toFixed(0)}
+          </span>
         </div>
-      )}
+      ))}
+      {/* Platform legend */}
+      <div className="flex flex-wrap gap-4 mt-3 pt-3 border-t border-[var(--wt-border)]">
+        {Object.entries(PLATFORM_COLOR).map(([p, c]) => (
+          <div key={p} className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
+            <span className="text-[11px] text-[var(--wt-text-2)]">{p}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -256,11 +242,33 @@ export function ReportsPage() {
   const safehouseQFn = useMemo(() => () => fetchSafehouseScores(), [])
   const { data: safehouseScores, loading: safehouseLoading } = useSupabaseQuery(safehouseQFn)
 
-  const socialQFn = useMemo(() => () => fetchSocialRecs(), [])
-  const { data: socialRecs, loading: socialLoading } = useSupabaseQuery(socialQFn)
+  const socialQFn = useMemo(() => () => fetchSocialStrategyData(), [])
+  const { data: socialPosts, loading: socialLoading } = useSupabaseQuery(socialQFn)
 
   const upgradeQFn = useMemo(() => () => fetchUpgradeBands(), [])
   const { data: upgradeBands, loading: upgradeLoading } = useSupabaseQuery(upgradeQFn)
+
+  // Aggregate social posts into ranked platform × content-type combos
+  const strategyData = useMemo<StrategyRow[]>(() => {
+    if (!socialPosts || socialPosts.length === 0) return []
+    const map = new Map<string, { engSum: number; refSum: number; count: number }>()
+    for (const r of socialPosts) {
+      const key = `${r.platform ?? 'Unknown'}|${r.post_type ?? 'Unknown'}`
+      const prev = map.get(key) ?? { engSum: 0, refSum: 0, count: 0 }
+      map.set(key, {
+        engSum: prev.engSum + (r.engagement_rate ?? 0),
+        refSum: prev.refSum + (r.donation_referrals ?? 0),
+        count: prev.count + 1,
+      })
+    }
+    return Array.from(map.entries())
+      .map(([key, v]) => {
+        const [platform, contentType] = key.split('|')
+        return { platform, contentType, avgEngagement: v.engSum / v.count, avgReferrals: v.refSum / v.count }
+      })
+      .sort((a, b) => b.avgEngagement - a.avgEngagement)
+      .slice(0, 10)
+  }, [socialPosts])
 
   if (!isSupabaseConfigured) {
     return (
@@ -330,60 +338,18 @@ export function ReportsPage() {
         </SectionCard>
       )}
 
-      {/* Social media post scorer */}
+      {/* Social media strategy performance chart */}
       {isSocialRep && (
         <SectionCard
-          title="Social Media Post Scorer"
-          subtitle="Estimate predicted engagement rate and donation referrals for a draft post before publishing. Source: social-media-optimization pipeline."
-        >
-          <PostScorerForm />
-        </SectionCard>
-      )}
-
-      {/* Top social media recommendations table */}
-      {isSocialRep && (
-        <SectionCard
-          title="Top Recommended Post Strategies"
-          subtitle="Highest-scoring platform/format combinations from the social media optimization model."
+          title="Social Media Strategy Performance"
+          subtitle="Average engagement rate by platform and content type, ranked from actual post data. Use the highest bars to guide your next post."
         >
           {socialLoading ? (
             <Spinner />
-          ) : (socialRecs ?? []).length === 0 ? (
-            <NoData message="No social media scores yet. Run the social_media_optimization notebook and export to social_media_ml_scores." />
+          ) : strategyData.length === 0 ? (
+            <NoData message="No social media post data found." />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)]">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
-                    <th className="px-4 py-3 font-medium">Platform</th>
-                    <th className="px-4 py-3 font-medium">Content type</th>
-                    <th className="px-4 py-3 font-medium text-right">Eng. rate</th>
-                    <th className="px-4 py-3 font-medium text-right">Donation refs</th>
-                    <th className="px-4 py-3 font-medium min-w-[10rem]">Recommendation</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {socialRecs!.map((r, idx) => (
-                    <tr
-                      key={idx}
-                      className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]"
-                    >
-                      <td className="px-4 py-3 text-[var(--wt-text)]">{r.platform ?? '—'}</td>
-                      <td className="px-4 py-3 text-[var(--wt-text)]">{r.content_type ?? '—'}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-[var(--wt-accent)] font-semibold">
-                        {r.predicted_engagement_rate != null
-                          ? `${(r.predicted_engagement_rate * 100).toFixed(1)}%`
-                          : '—'}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-[var(--wt-text)]">
-                        {r.predicted_donation_referrals?.toFixed(1) ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-[var(--wt-text-2)] text-xs">{r.recommendation ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <SocialStrategyChart data={strategyData} />
           )}
         </SectionCard>
       )}
