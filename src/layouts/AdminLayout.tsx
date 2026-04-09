@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  Share2,
   Shield,
   Sun,
   UserCog,
@@ -34,6 +35,7 @@ const navItems = [
   { to: '/portal/process-recordings', label: 'Process Recordings', icon: FileText },
   { to: '/portal/visitations', label: 'Visitations', icon: ClipboardList },
   { to: '/portal/reports', label: 'Reports & Analytics', icon: BarChart3 },
+  { to: '/portal/social-media', label: 'Social Media', icon: Share2 },
   { to: '/portal/your-donations', label: 'Your Donations', icon: Heart },
   { to: '/portal/site-users', label: 'Site Users', icon: UserCog },
 ]
