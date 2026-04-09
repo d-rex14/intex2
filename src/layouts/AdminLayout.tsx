@@ -21,7 +21,7 @@ import { RequirePortalAccess } from "../components/RequirePortalAccess";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../hooks/useTheme";
 import { canAccessNavPath } from "../lib/roles";
-import { isSupabaseConfigured } from "../lib/supabase";
+import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import watchtowerLogo from "../assets/branding/watchtower-logo-transparent.png";
 
 const navItems = [
@@ -41,6 +41,12 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileNotice, setProfileNotice] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
 
   const visibleNavItems = useMemo(() => {
     return navItems.filter((item) => {
@@ -51,9 +57,44 @@ export function AdminLayout() {
     });
   }, [effectiveRoleIds, rolesLoading]);
 
+  const portalLabel = role === 'donor' ? 'Donor Portal' : 'Staff Portal';
+
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
+  };
+
+  const openProfileEditor = () => {
+    const fallbackName =
+      (user?.user_metadata?.display_name as string | undefined)?.trim() ||
+      (user?.user_metadata?.name as string | undefined)?.trim() ||
+      "";
+    setProfileName(fallbackName);
+    setProfileEmail(user?.email ?? "");
+    setProfileError(null);
+    setProfileNotice(null);
+    setProfileOpen(true);
+  };
+
+  const saveProfile = async () => {
+    if (!supabase || !user) return;
+    setProfileSaving(true);
+    setProfileError(null);
+    setProfileNotice(null);
+    const nextEmail = profileEmail.trim();
+    const nextName = profileName.trim();
+    const metadata = {
+      ...(user.user_metadata ?? {}),
+      display_name: nextName || null,
+      name: nextName || null,
+    };
+    const { error } = await supabase.auth.updateUser({
+      email: nextEmail || undefined,
+      data: metadata,
+    });
+    if (error) setProfileError(error.message);
+    else setProfileNotice("Profile updated. If email changed, check your inbox for confirmation.");
+    setProfileSaving(false);
   };
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
@@ -74,7 +115,7 @@ export function AdminLayout() {
               Portal
             </span>
             <p className="text-[10px] text-[var(--wt-text-2)] uppercase tracking-widest">
-              Staff Portal
+              {portalLabel}
             </p>
           </div>
         )}
@@ -104,14 +145,18 @@ export function AdminLayout() {
 
       <div className="border-t border-[var(--wt-border)] p-3">
         {(!collapsed || mobile) && (
-          <div className="mb-2 px-2 py-1.5 rounded-lg bg-[var(--wt-surface)] border border-[var(--wt-border)]">
+          <button
+            type="button"
+            onClick={openProfileEditor}
+            className="mb-2 w-full px-2 py-1.5 rounded-lg bg-[var(--wt-surface)] border border-[var(--wt-border)] text-left hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_16%,transparent)] transition-colors"
+          >
             <p className="text-xs font-medium text-[var(--wt-text)] truncate">
               {user?.email}
             </p>
             <p className="text-[10px] uppercase tracking-widest text-[var(--wt-accent)] font-medium">
               {role}
             </p>
-          </div>
+          </button>
         )}
         <button
           onClick={handleSignOut}
@@ -206,6 +251,54 @@ export function AdminLayout() {
           <RequirePortalAccess />
         </main>
       </div>
+      {profileOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl overflow-hidden">
+            <div className="p-6 border-b border-[var(--wt-border)]">
+              <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Edit Profile</h2>
+              <p className="mt-1 text-sm text-[var(--wt-text-2)]">Update your name and email.</p>
+            </div>
+            <div className="p-6 space-y-3">
+              {profileError && <p className="text-sm text-[#dc2626]">{profileError}</p>}
+              {profileNotice && <p className="text-sm text-[var(--wt-accent)]">{profileNotice}</p>}
+              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest block">
+                Display name
+                <input
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]"
+                />
+              </label>
+              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest block">
+                Email
+                <input
+                  type="email"
+                  value={profileEmail}
+                  onChange={(e) => setProfileEmail(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]"
+                />
+              </label>
+            </div>
+            <div className="p-6 pt-2 border-t border-[var(--wt-border)] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setProfileOpen(false)}
+                className="rounded-lg border border-[var(--wt-border)] px-4 py-2 text-sm text-[var(--wt-text)]"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={saveProfile}
+                disabled={profileSaving || !isSupabaseConfigured}
+                className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {profileSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

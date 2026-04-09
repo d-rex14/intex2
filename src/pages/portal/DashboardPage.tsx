@@ -278,91 +278,10 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <SectionCard title="Quick actions" subtitle="Jump to your most-used tools.">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Link
-              to="/portal/your-donations"
-              className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_12%,transparent)] transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] flex items-center justify-center text-[var(--wt-accent)]">
-                  <HeartHandshake size={18} />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-[var(--wt-text)]">Your donations</div>
-                  <div className="text-xs text-[var(--wt-text-2)]">View your giving history and allocation.</div>
-                </div>
-              </div>
-            </Link>
-
-            <Link
-              to="/portal/donors"
-              className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_12%,transparent)] transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] flex items-center justify-center text-[var(--wt-accent)]">
-                  <Users size={18} />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-[var(--wt-text)]">Donations and allocations</div>
-                  <div className="text-xs text-[var(--wt-text-2)]">
-                    {isDonor ? 'Explore giving and impact summaries.' : 'Manage donation records.'}
-                  </div>
-                </div>
-              </div>
-            </Link>
-
-            {staff && (
-              <Link
-                to="/portal/caseload"
-                className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_12%,transparent)] transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] flex items-center justify-center text-[var(--wt-accent)]">
-                    <Shield size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold text-[var(--wt-text)]">Caseload inventory</div>
-                    <div className="text-xs text-[var(--wt-text-2)]">Review resident status and risk indicators.</div>
-                  </div>
-                </div>
-              </Link>
-            )}
-
-            {isSocialRep && (
-              <Link
-                to="/portal/reports"
-                className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_12%,transparent)] transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] flex items-center justify-center text-[var(--wt-accent)]">
-                    <BarChart3 size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold text-[var(--wt-text)]">Reports & analytics</div>
-                    <div className="text-xs text-[var(--wt-text-2)]">Model outputs and trend summaries.</div>
-                  </div>
-                </div>
-              </Link>
-            )}
-          </div>
-
-          <div className="mt-4 flex items-center gap-2 text-xs text-[var(--wt-text-2)]">
-            <Home size={14} />
-            <span>
-              Need public-facing impact? Go to{' '}
-              <Link to="/donations" className="text-[var(--wt-text)] hover:underline">
-                donations
-              </Link>
-              .
-            </span>
-          </div>
-        </SectionCard>
-
+      <div className="grid grid-cols-1 gap-4">
         <SectionCard title="Safehouse occupancy" subtitle="Current occupancy vs capacity (girls).">
           {loading ? (
-            <div className="flex items-center gap-3 py-8 justify-center text-sm text-[var(--wt-text-2)]">
+            <div className="flex items-center gap-3 py-5 justify-center text-sm text-[var(--wt-text-2)]">
               <div className="w-6 h-6 border-2 border-[var(--wt-accent)] border-t-transparent rounded-full animate-spin" />
               Loading…
             </div>
@@ -371,13 +290,13 @@ export function DashboardPage() {
           ) : (data?.safehouses ?? []).length === 0 ? (
             <p className="text-sm text-[var(--wt-text-2)]">No safehouses returned.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {(data?.safehouses ?? []).map((s) => {
                 const occ = Number(s.current_occupancy ?? 0)
                 const cap = Number(s.capacity_girls ?? 0)
                 const pct = cap > 0 ? Math.min(1, occ / cap) : 0
                 return (
-                  <div key={s.safehouse_id} className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4">
+                  <div key={s.safehouse_id} className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="font-semibold text-[var(--wt-text)] truncate" title={s.name ?? undefined}>
@@ -389,7 +308,7 @@ export function DashboardPage() {
                         {formatNumber(occ)} / {formatNumber(cap)}
                       </div>
                     </div>
-                    <div className="mt-3 h-2 rounded-full bg-[var(--wt-border)] overflow-hidden">
+                    <div className="mt-2 h-1.5 rounded-full bg-[var(--wt-border)] overflow-hidden">
                       <div
                         className="h-full rounded-full bg-[var(--wt-accent)]"
                         style={{ width: `${pct * 100}%` }}

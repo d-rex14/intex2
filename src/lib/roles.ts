@@ -40,21 +40,22 @@ const ROUTE_ACCESS_RULES: { prefix: string; allowedRoleIds: readonly number[] }[
   { prefix: '/portal/reports', allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.SOCIAL_MEDIA_REP] },
   // Site users: admin only
   { prefix: '/portal/site-users', allowedRoleIds: [ROLE_IDS.ADMIN] },
-  // Donors page: staff/admin full CRUD; donors, social_media_rep, and basic users see own giving
+  // Donors page: staff/admin full CRUD; non-staff roles do not access this staff view.
   {
     prefix: '/portal/donors',
     allowedRoleIds: [
       ROLE_IDS.ADMIN,
       ROLE_IDS.STAFF,
-      ROLE_IDS.DONOR,
       ROLE_IDS.SOCIAL_MEDIA_REP,
-      ROLE_IDS.USER,
     ],
   },
   // Your donations: any signed-in user
   { prefix: '/portal/your-donations', allowedRoleIds: [...ALL_ASSIGNED] },
-  // Dashboard: everyone with any role (includes fallback USER for new accounts)
-  { prefix: '/portal', allowedRoleIds: [...ALL_ASSIGNED] },
+  // Dashboard: staff/admin/social role views (donor sees their own donations page only).
+  {
+    prefix: '/portal',
+    allowedRoleIds: [ROLE_IDS.ADMIN, ROLE_IDS.STAFF, ROLE_IDS.SOCIAL_MEDIA_REP],
+  },
 ]
 
 export function normalizeAdminPath(pathname: string): string {

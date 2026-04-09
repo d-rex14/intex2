@@ -197,9 +197,6 @@ type Safehouse = {
 }
 
 type ResidentDraft = {
-  resident_id: string
-  case_control_no: string
-  internal_code: string
   safehouse_id: string
   case_status: string
   sex: string
@@ -284,9 +281,6 @@ function subCategoryTags(r: Resident): string[] {
 
 function toDraft(r?: Resident): ResidentDraft {
   return {
-    resident_id: r ? String(r.resident_id) : '',
-    case_control_no: r?.case_control_no ?? '',
-    internal_code: r?.internal_code ?? '',
     safehouse_id: r?.safehouse_id != null ? String(r.safehouse_id) : '',
     case_status: r?.case_status ?? '',
     sex: r?.sex ?? '',
@@ -313,6 +307,14 @@ function toDraft(r?: Resident): ResidentDraft {
     family_indigenous: Boolean(r?.family_indigenous),
     family_informal_settler: Boolean(r?.family_informal_settler),
   }
+}
+
+function formatInternalCode(residentId: number): string {
+  return `LS-${String(residentId).padStart(4, '0')}`
+}
+
+function randomCaseControlNo(): string {
+  return `C${Math.floor(1000 + Math.random() * 9000)}`
 }
 
 async function fetchResidents(): Promise<{ data: Resident[] | null; error: { message: string } | null }> {
@@ -378,7 +380,7 @@ function ResidentDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose} role="presentation">
       <div
-        className="w-full max-w-3xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto shadow-xl"
+        className="w-full max-w-3xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-xl"
         role="dialog"
         onClick={e => e.stopPropagation()}
       >
@@ -572,17 +574,27 @@ export function CaseloadPage() {
 
   const saveResident = async () => {
     if (!supabase) return
-    const residentId = Number(draft.resident_id)
-    if (!Number.isFinite(residentId) || residentId <= 0) {
-      setFormError('Resident ID is required and must be a positive number.')
-      return
-    }
     setSaving(true)
     setFormError(null)
+
+    const generateUniqueCaseControlNo = async (): Promise<string | null> => {
+      for (let i = 0; i < 40; i += 1) {
+        const candidate = randomCaseControlNo()
+        const { count, error: checkError } = await supabase
+          .from('residents')
+          .select('resident_id', { count: 'exact', head: true })
+          .eq('case_control_no', candidate)
+        if (checkError) {
+          setFormError(checkError.message)
+          return null
+        }
+        if ((count ?? 0) === 0) return candidate
+      }
+      setFormError('Unable to generate a unique case control number. Please try again.')
+      return null
+    }
+
     const payload = {
-      resident_id: residentId,
-      case_control_no: draft.case_control_no.trim() || null,
-      internal_code: draft.internal_code.trim() || null,
       safehouse_id: draft.safehouse_id ? Number(draft.safehouse_id) : null,
       case_status: draft.case_status.trim() || null,
       sex: draft.sex.trim() || null,
@@ -611,11 +623,29 @@ export function CaseloadPage() {
     }
     let dbError: string | null = null
     if (editingId == null) {
-      const { error } = await supabase.from('residents').insert({
-        ...payload,
-        initial_risk_level: payload.current_risk_level,
-      })
-      dbError = error?.message ?? null
+      const caseControlNo = await generateUniqueCaseControlNo()
+      if (!caseControlNo) {
+        setSaving(false)
+        return
+      }
+      const { data: inserted, error } = await supabase
+        .from('residents')
+        .insert({
+          ...payload,
+          case_control_no: caseControlNo,
+          initial_risk_level: payload.current_risk_level,
+        })
+        .select('resident_id')
+        .single()
+      if (!error && inserted?.resident_id != null) {
+        const { error: codeError } = await supabase
+          .from('residents')
+          .update({ internal_code: formatInternalCode(inserted.resident_id) })
+          .eq('resident_id', inserted.resident_id)
+        dbError = codeError?.message ?? null
+      } else {
+        dbError = error?.message ?? null
+      }
     } else {
       const { error } = await supabase.from('residents').update(payload).eq('resident_id', editingId)
       dbError = error?.message ?? null
@@ -685,8 +715,8 @@ export function CaseloadPage() {
           <select className={selectClass} value={safehouseFilter} onChange={e => { setSafehouseFilter(e.target.value); setPage(1) }}>
             <option value="all">All safehouses</option>
             {(safehouses ?? []).map(s => (
-              <option key={s.safehouse_id} value={String(s.safehouse_id)}>{s.name ?? `Safehouse #${s.safehouse_id}`}</option>
-            ))}
+              <option key={s.safehouse_id} value={String(s.safehouse_id)}>{s.name ?? `Safehouse #${s.safehouse_id}`}</option>)
+            )}
           </select>
         </label>
         <label className="flex flex-col gap-1 min-w-[10rem]">
@@ -795,20 +825,39 @@ export function CaseloadPage() {
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closeForm} role="presentation">
-          <div className="w-full max-w-3xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto shadow-xl" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-3xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--wt-border)]">
               <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">{editingId == null ? 'Create Resident' : `Edit Resident #${editingId}`}</h2>
               <p className="text-sm text-[var(--wt-text-2)] mt-1">Update demographics, case categories, disability, family profile, and reintegration tracking.</p>
             </div>
             <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Resident ID
-                <input value={draft.resident_id} disabled={editingId != null} onChange={e => setDraft(d => ({ ...d, resident_id: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
-              </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Case control no
-                <input value={draft.case_control_no} onChange={e => setDraft(d => ({ ...d, case_control_no: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
+                <input
+                  value={editingId == null ? 'Auto-generated on save' : ((residents ?? []).find(r => r.resident_id === editingId)?.case_control_no ?? '—')}
+                  disabled
+                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text-2)]"
+                />
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Internal code
-                <input value={draft.internal_code} onChange={e => setDraft(d => ({ ...d, internal_code: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]" />
+                <input
+                  value={editingId == null ? 'Auto-generated from resident ID' : ((residents ?? []).find(r => r.resident_id === editingId)?.internal_code ?? '—')}
+                  disabled
+                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text-2)]"
+                />
+              </label>
+              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Case control no
+                <input
+                  value={editingId == null ? 'Auto-generated on save' : ((residents ?? []).find(r => r.resident_id === editingId)?.case_control_no ?? '—')}
+                  disabled
+                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text-2)]"
+                />
+              </label>
+              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Internal code
+                <input
+                  value={editingId == null ? 'Auto-generated from resident ID' : ((residents ?? []).find(r => r.resident_id === editingId)?.internal_code ?? '—')}
+                  disabled
+                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text-2)]"
+                />
               </label>
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">Safehouse
                 <select value={draft.safehouse_id} onChange={e => setDraft(d => ({ ...d, safehouse_id: e.target.value }))} className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]">

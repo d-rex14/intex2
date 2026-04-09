@@ -290,13 +290,16 @@ function formatShortDateUTC(t: number): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
-function startOfWeekUTC(t: number): number {
-  // Use Monday as the first day of week.
+function formatMonthUTC(t: number): string {
   const d = new Date(t)
-  const day = d.getUTCDay() // 0=Sun ... 6=Sat
-  const diffToMonday = (day + 6) % 7
-  const weekStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - diffToMonday, 0, 0, 0, 0)
-  return weekStart
+  const yyyy = d.getUTCFullYear()
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  return `${yyyy}-${mm}`
+}
+
+function startOfMonthUTC(t: number): number {
+  const d = new Date(t)
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0)
 }
 
 function BarChart({
@@ -400,7 +403,9 @@ function BarChart({
               rx={2}
               fill="#f59e0b"
               opacity={isHover ? 1 : 0.82}
-            />
+            >
+              <title>{`${formatMonthUTC(p.t)}: ${formatMoney(currency, p.v)}`}</title>
+            </rect>
           )
         })}
 
@@ -412,7 +417,7 @@ function BarChart({
           className="fill-[var(--wt-text-2)]"
           style={{ fontSize: 10 }}
         >
-          {formatShortDateUTC(minX)}
+          {formatMonthUTC(minX)}
         </text>
         <text
           x={width - padR}
@@ -421,7 +426,7 @@ function BarChart({
           className="fill-[var(--wt-text-2)]"
           style={{ fontSize: 10 }}
         >
-          {formatShortDateUTC(maxX)}
+          {formatMonthUTC(maxX)}
         </text>
 
         {/* hover marker */}
@@ -448,7 +453,7 @@ function BarChart({
       {hoverIdx != null && pointsWithX[hoverIdx] && (
         <div className="mt-2 text-xs text-[var(--wt-text-2)]">
           <span className="text-[var(--wt-text)] font-semibold">
-            {formatShortDateUTC(pointsWithX[hoverIdx].t)}
+            {formatMonthUTC(pointsWithX[hoverIdx].t)}
           </span>
           <span className="ml-3">
             {formatMoney(currency, pointsWithX[hoverIdx].v)} total
@@ -603,7 +608,8 @@ export function DonorsContributionsPage() {
   const [topDonorsType, setTopDonorsType] = useState<'all' | DonationType>('Monetary')
   const [allocationTime, setAllocationTime] = useState<TimeRange>('all')
   // Default to the smallest range we show on this card.
-  const [overviewTime, setOverviewTime] = useState<TimeRange>('3m')
+  const [overviewTime, setOverviewTime] = useState<TimeRange>('6m')
+  const [overviewDonationType, setOverviewDonationType] = useState<'all' | DonationType>('Monetary')
 
   const [donorDetailKey, setDonorDetailKey] = useState<string | null>(null)
   const [detailRow, setDetailRow] = useState<DonationWithSupporter | null>(null)
@@ -754,11 +760,11 @@ export function DonorsContributionsPage() {
 
   const donationOverview = useMemo(() => {
     const rows = rawRows ?? []
-    const totalsByWeek = new Map<number, number>()
+    const totalsByMonth = new Map<number, number>()
     let overall = 0
 
     for (const r of rows) {
-      if (r.donation_type !== 'Monetary') continue
+      if (overviewDonationType !== 'all' && r.donation_type !== overviewDonationType) continue
       const val = r.amount ?? r.estimated_value
       if (val == null) continue
       const n = Number(val)
@@ -775,15 +781,15 @@ export function DonorsContributionsPage() {
       if (fx.converted == null) continue
 
       overall += fx.converted
-      const weekKey = startOfWeekUTC(t)
-      totalsByWeek.set(weekKey, (totalsByWeek.get(weekKey) ?? 0) + fx.converted)
+      const monthKey = startOfMonthUTC(t)
+      totalsByMonth.set(monthKey, (totalsByMonth.get(monthKey) ?? 0) + fx.converted)
     }
 
-    const dates = [...totalsByWeek.keys()].sort((a, b) => a - b)
-    const values = dates.map(d => totalsByWeek.get(d) ?? 0)
+    const dates = [...totalsByMonth.keys()].sort((a, b) => a - b)
+    const values = dates.map(d => totalsByMonth.get(d) ?? 0)
 
     return { overall, dates, values }
-  }, [rawRows, currency, overviewTime])
+  }, [rawRows, currency, overviewTime, overviewDonationType])
 
   const donorDetail = useMemo(() => {
     if (!donorDetailKey) return null
@@ -974,12 +980,26 @@ export function DonorsContributionsPage() {
                 <option value="all">All-time</option>
                 <option value="1y">Last Year</option>
                 <option value="6m">Last 6 Months</option>
-                <option value="3m">Last 3 Months</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 min-w-[10rem] items-end">
+              <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Donation type</span>
+              <select
+                className={selectClass}
+                value={overviewDonationType}
+                onChange={e => setOverviewDonationType(e.target.value as 'all' | DonationType)}
+              >
+                <option value="all">All types</option>
+                {DONATION_TYPES.map(t => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
               </select>
             </label>
             <div className="flex items-baseline gap-3">
               <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">
-                Sum of monetary donations
+                Sum of selected donations
               </span>
               <span className="text-xl font-semibold text-[var(--wt-text)] tabular-nums">
                 {formatMoney(currency, donationOverview.overall)}
@@ -1379,7 +1399,7 @@ export function DonorsContributionsPage() {
           role="presentation"
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto shadow-xl"
+            className="w-full max-w-lg rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-xl"
             role="dialog"
             aria-labelledby="donation-detail-title"
             onClick={e => e.stopPropagation()}
@@ -1434,7 +1454,7 @@ export function DonorsContributionsPage() {
           role="presentation"
         >
           <div
-            className="w-full max-w-2xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto shadow-xl"
+            className="w-full max-w-2xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-xl"
             role="dialog"
             aria-labelledby="donor-detail-title"
             onClick={e => e.stopPropagation()}
@@ -1547,7 +1567,7 @@ export function DonorsContributionsPage() {
 
       {editing && staff && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="w-full max-w-lg rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-6 space-y-4 max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Edit donation #{editing.donation_id}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-2">

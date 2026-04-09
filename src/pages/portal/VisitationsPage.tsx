@@ -163,7 +163,7 @@ function ModalShell({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose} role="presentation">
       <div
-        className="w-full max-w-2xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-2xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl max-h-[90vh] overflow-y-auto overflow-x-hidden"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label={title}
