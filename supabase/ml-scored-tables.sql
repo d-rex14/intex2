@@ -170,6 +170,18 @@ CREATE POLICY "social_rep_read_social_ml_scores"
   );
 
 -- ---------------------------------------------------------------------------
+-- 6. resident_ml_scores — stall risk columns (pipeline 01_clinical_efficacy)
+--    Populated by: ml-pipelines/01_clinical_efficacy/clinical_efficacy_pipeline.ipynb
+--    Read by: /portal/caseload (CaseloadPage) and /portal/reports (ReportsPage, staff only)
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.resident_ml_scores
+  ADD COLUMN IF NOT EXISTS stall_risk_band  text
+    CHECK (stall_risk_band IN ('High', 'Medium', 'Low') OR stall_risk_band IS NULL),
+  ADD COLUMN IF NOT EXISTS stall_risk_score numeric(6, 4);
+
+-- No new RLS policy needed — existing staff_read_resident_ml_scores covers all columns.
+
+-- ---------------------------------------------------------------------------
 -- Notes for notebook authors
 -- ---------------------------------------------------------------------------
 -- To write scores from Python (service role key required):

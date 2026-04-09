@@ -12,6 +12,8 @@ type ResidentMLScore = {
   school_struggle_band: 'High' | 'Medium' | 'Low' | null
   wellbeing_band: 'High' | 'Medium' | 'Low' | null
   incident_risk_band: 'High' | 'Medium' | 'Low' | null
+  stall_risk_band: 'High' | 'Medium' | 'Low' | null
+  stall_risk_score: number | null
   model_version: string
   scored_at: string
 }
@@ -68,7 +70,7 @@ function CaseloadMLMetricsGuide() {
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-[var(--wt-text)]">Understanding the insight columns</div>
           <div className="text-xs text-[var(--wt-text-2)] mt-0.5">
-            Plain-language guide to the four model-supported columns and the color key (click to show or hide)
+            Plain-language guide to the five model-supported columns and the color key (click to show or hide)
           </div>
         </div>
       </button>
@@ -144,6 +146,17 @@ function CaseloadMLMetricsGuide() {
                 <strong className="text-[var(--wt-text)]">High</strong> means &quot;review with care&quot;;{' '}
                 <strong className="text-[var(--wt-text)]">Low</strong> means fewer historical warning signals in the dataset—not a
                 guarantee of safety.
+              </p>
+            </div>
+            <div className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] p-3">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1.5">Health stall</div>
+              <p className="text-xs text-[var(--wt-text-2)] leading-relaxed">
+                <strong className="text-[var(--wt-text)]">High</strong>, <strong className="text-[var(--wt-text)]">Medium</strong>, or{' '}
+                <strong className="text-[var(--wt-text)]">Low</strong> estimates the likelihood that a resident&apos;s health trajectory
+                will plateau or decline over the next six months, based on baseline health scores, counseling engagement, school
+                attendance, and incident history. This is produced by the clinical efficacy pipeline and is{' '}
+                <strong className="text-[var(--wt-text)]">exploratory</strong>—use it to prompt a care plan conversation or flag a
+                case for closer supervision, not as a standalone clinical judgment.
               </p>
             </div>
           </div>
@@ -455,7 +468,7 @@ function ResidentDetailModal({
           {mlScore && showMlForStatus(resident.case_status) ? (
             <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4 md:col-span-2">
               <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-3">Model Insights</div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
                 <div>
                   <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Reintegration</div>
                   <RiskChip band={mlScore.reintegration_band} type="reintegration" />
@@ -471,6 +484,10 @@ function ResidentDetailModal({
                 <div>
                   <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Incident risk</div>
                   <RiskChip band={mlScore.incident_risk_band} type="risk" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Health stall</div>
+                  <RiskChip band={mlScore.stall_risk_band} type="risk" />
                 </div>
               </div>
               <p className="mt-3 text-[10px] text-[var(--wt-text-2)]">Model v{mlScore.model_version} · {mlScore.scored_at.slice(0, 10)} · Decision support only</p>
@@ -803,6 +820,7 @@ export function CaseloadPage() {
                   {staff && <th className="px-4 py-3 font-medium whitespace-nowrap">School risk</th>}
                   {staff && <th className="px-4 py-3 font-medium whitespace-nowrap">Wellbeing</th>}
                   {staff && <th className="px-4 py-3 font-medium whitespace-nowrap">Incident risk</th>}
+                  {staff && <th className="px-4 py-3 font-medium whitespace-nowrap">Health stall</th>}
                   <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Actions</th>
                 </tr>
               </thead>
@@ -825,6 +843,7 @@ export function CaseloadPage() {
                       {staff && <td className="px-4 py-3">{mlCell(ml?.school_struggle_band, 'risk')}</td>}
                       {staff && <td className="px-4 py-3">{mlCell(ml?.wellbeing_band, 'wellbeing')}</td>}
                       {staff && <td className="px-4 py-3">{mlCell(ml?.incident_risk_band, 'risk')}</td>}
+                      {staff && <td className="px-4 py-3">{mlCell(ml?.stall_risk_band, 'risk')}</td>}
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex justify-end gap-2">
                           <button type="button" onClick={() => setSelectedId(r.resident_id)} className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs text-[var(--wt-text)]">Details</button>
@@ -836,7 +855,7 @@ export function CaseloadPage() {
                   )
                 })}
                 {pagedRows.length === 0 && (
-                  <tr><td colSpan={staff ? 9 : 5} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">No residents found.</td></tr>
+                  <tr><td colSpan={staff ? 10 : 5} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">No residents found.</td></tr>
                 )}
               </tbody>
             </table>
