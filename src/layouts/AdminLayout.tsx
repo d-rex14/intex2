@@ -4,18 +4,22 @@ import {
   BarChart3,
   Bell,
   ChevronLeft,
+  ClipboardList,
   FileText,
   FolderOpen,
   Heart,
   LayoutDashboard,
   LogOut,
   Menu,
+  Moon,
+  Sun,
   UserCog,
   Users,
   X,
 } from "lucide-react";
 import { RequirePortalAccess } from "../components/RequirePortalAccess";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../hooks/useTheme";
 import { canAccessNavPath } from "../lib/roles";
 import { isSupabaseConfigured } from "../lib/supabase";
 import watchtowerLogo from "../assets/branding/watchtower-logo-transparent.png";
@@ -25,6 +29,7 @@ const navItems = [
   { to: '/portal/donors', label: 'Donations and Allocations', icon: Users },
   { to: '/portal/caseload', label: 'Caseload Inventory', icon: FolderOpen },
   { to: '/portal/process-recordings', label: 'Process Recordings', icon: FileText },
+  { to: '/portal/visitations', label: 'Visitations', icon: ClipboardList },
   { to: '/portal/reports', label: 'Reports & Analytics', icon: BarChart3 },
   { to: '/portal/your-donations', label: 'Your Donations', icon: Heart },
   { to: '/portal/site-users', label: 'Site Users', icon: UserCog },
@@ -32,6 +37,7 @@ const navItems = [
 
 export function AdminLayout() {
   const { user, role, signOut, effectiveRoleIds, rolesLoading } = useAuth();
+  const { theme, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -170,6 +176,15 @@ export function AdminLayout() {
           </button>
 
           <div className="flex-1" />
+
+          <button
+            onClick={toggleTheme}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors"
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
 
           <button
             className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors relative"

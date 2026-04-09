@@ -53,17 +53,171 @@ function PageShell({
 }
 
 function PrivacyPage() {
+  const Section = ({ heading, children }: { heading: string; children: React.ReactNode }) => (
+    <div className="mb-6">
+      <h2 className="text-lg font-bold text-[var(--wt-text)] mb-2">{heading}</h2>
+      <div className="text-sm text-[var(--wt-text)] leading-relaxed space-y-2">{children}</div>
+    </div>
+  )
+
   return (
-    <PageShell title="Privacy Policy" subtitle="GDPR-aligned notice for how we use data and cookies.">
+    <PageShell title="Privacy Policy" subtitle="Effective date: April 1, 2026 — Last updated: April 8, 2026">
       <div className="max-w-none">
-        <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
-          <p className="text-[var(--wt-text)] leading-relaxed">
-            This site uses essential cookies to keep users signed in and store limited preferences (cookie consent).
-            We do not sell personal data or use advertising trackers. Replace this text with your finalized policy.
-          </p>
+        <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6 space-y-2">
+          <Section heading="1. Who We Are">
+            <p>
+              Watchtower Sanctuary (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) is a 501(c)(3) nonprofit
+              organization that operates safe homes for girls who are survivors of sexual abuse and sex trafficking.
+              This privacy policy explains how we collect, use, store, and protect personal data when you visit our
+              website or use our staff portal.
+            </p>
+            <p>
+              Contact: <a href="mailto:info@lighthousesanctuary.com" className="text-[var(--wt-accent)] underline underline-offset-2">info@lighthousesanctuary.com</a> | (801) 831-3323
+            </p>
+          </Section>
+
+          <Section heading="2. Data We Collect">
+            <p><strong>Account data:</strong> When you create an account we collect your email address and an encrypted password. If you sign in with Google, we receive your name and email from Google&apos;s OAuth service.</p>
+            <p><strong>Operational data (staff only):</strong> Authorized staff enter and manage case records, counseling session notes, home visitation reports, donation records, and related operational information. This data is stored in our secure database and is accessible only to authenticated, role-authorized users.</p>
+            <p><strong>Donor data:</strong> If you make a donation through our platform, we record transaction details such as amount, date, and allocation. Payment processing is handled by third-party providers (e.g., PayPal, Venmo); we do not store credit card numbers.</p>
+            <p><strong>Usage data:</strong> We collect standard web analytics such as pages visited, browser type, and referring URL. We do not use advertising trackers or sell data to third parties.</p>
+          </Section>
+
+          <Section heading="3. How We Use Your Data">
+            <p>We use personal data exclusively to:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>Authenticate users and enforce role-based access control</li>
+              <li>Manage case records and support the rehabilitation of residents</li>
+              <li>Track donations and communicate impact to supporters</li>
+              <li>Improve our website and services through aggregated, anonymized analytics</li>
+              <li>Comply with legal and regulatory obligations</li>
+            </ul>
+            <p>We never sell, rent, or trade personal data to third parties for marketing purposes.</p>
+          </Section>
+
+          <Section heading="4. Legal Basis for Processing (GDPR)">
+            <p>If you are located in the European Economic Area (EEA), we process your data under the following bases:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>Consent:</strong> For cookies and optional communications (you may withdraw consent at any time)</li>
+              <li><strong>Contractual necessity:</strong> To provide you with account and portal access</li>
+              <li><strong>Legitimate interest:</strong> To operate and improve our services, prevent fraud, and ensure security</li>
+              <li><strong>Legal obligation:</strong> To comply with applicable laws</li>
+            </ul>
+          </Section>
+
+          <Section heading="5. Cookies">
+            <p>We use a limited number of cookies:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>Authentication cookies:</strong> Essential cookies managed by our authentication provider (Supabase) to keep you signed in. These are strictly necessary and cannot be disabled without losing access.</li>
+              <li><strong>Consent cookie:</strong> Records whether you have accepted or declined our cookie notice. Stored for 1 year.</li>
+              <li><strong>Preference cookie:</strong> Stores your display preference (e.g., light/dark mode). This is a non-essential, browser-accessible cookie you can clear at any time.</li>
+            </ul>
+            <p>We do <strong>not</strong> use advertising, analytics, or third-party tracking cookies. If you decline non-essential cookies, no preference cookies will be set, and the site will use default settings.</p>
+          </Section>
+
+          <Section heading="6. Data Sharing &amp; Third Parties">
+            <p>We share data only with:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>Supabase:</strong> Our authentication and database provider, which stores account and operational data on secure cloud infrastructure.</li>
+              <li><strong>Google:</strong> If you choose to sign in with Google, your email and name are shared via Google&apos;s OAuth 2.0 protocol.</li>
+              <li><strong>Payment processors:</strong> PayPal and Venmo handle donation transactions; we do not receive or store full payment credentials.</li>
+              <li><strong>Vercel:</strong> Our hosting provider serves the website and may process request metadata (IP addresses, headers) as part of standard web hosting.</li>
+            </ul>
+            <p>We do not transfer data to countries outside the EEA without adequate safeguards as required by GDPR.</p>
+          </Section>
+
+          <Section heading="7. Data Retention">
+            <p>We retain personal data only as long as necessary:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>Account data:</strong> Retained while your account is active; deleted upon request.</li>
+              <li><strong>Case records:</strong> Retained in accordance with social welfare record-keeping requirements and organizational policy. Sensitive case data is access-restricted to authorized staff.</li>
+              <li><strong>Donation records:</strong> Retained for tax and audit compliance (typically 7 years).</li>
+              <li><strong>Cookies:</strong> Consent and preference cookies expire after 1 year.</li>
+            </ul>
+          </Section>
+
+          <Section heading="8. Your Rights">
+            <p>Under GDPR and applicable privacy laws, you have the right to:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>Access:</strong> Request a copy of the personal data we hold about you</li>
+              <li><strong>Rectification:</strong> Request correction of inaccurate data</li>
+              <li><strong>Erasure:</strong> Request deletion of your data (&quot;right to be forgotten&quot;), subject to legal retention requirements</li>
+              <li><strong>Restriction:</strong> Request that we limit processing of your data</li>
+              <li><strong>Portability:</strong> Receive your data in a structured, machine-readable format</li>
+              <li><strong>Objection:</strong> Object to processing based on legitimate interest</li>
+              <li><strong>Withdraw consent:</strong> Withdraw previously given consent at any time</li>
+            </ul>
+            <p>
+              To exercise any of these rights, contact us at{' '}
+              <a href="mailto:info@lighthousesanctuary.com" className="text-[var(--wt-accent)] underline underline-offset-2">info@lighthousesanctuary.com</a>.
+              We will respond within 30 days.
+            </p>
+          </Section>
+
+          <Section heading="9. Data Security">
+            <p>
+              We take the security of your data seriously. All connections to our site are encrypted with TLS (HTTPS).
+              Access to sensitive data is restricted by role-based access controls. Passwords are hashed and never
+              stored in plain text. Our database enforces row-level security policies. We regularly review our security
+              practices to protect against unauthorized access, alteration, or destruction of data.
+            </p>
+          </Section>
+
+          <Section heading="10. Children&apos;s Privacy">
+            <p>
+              Our public website does not knowingly collect personal data from children under 16. The staff portal
+              contains case management records for minors in our care; access to this data is strictly limited to
+              authorized staff and is governed by organizational policy and applicable child protection regulations.
+            </p>
+          </Section>
+
+          <Section heading="11. Changes to This Policy">
+            <p>
+              We may update this privacy policy from time to time. Material changes will be communicated via a notice
+              on our website. The &quot;last updated&quot; date at the top of this page reflects the most recent revision.
+            </p>
+          </Section>
+
+          <Section heading="12. Contact Us">
+            <p>
+              If you have questions about this privacy policy or wish to exercise your data rights, please contact us:
+            </p>
+            <p>
+              Email: <a href="mailto:info@lighthousesanctuary.com" className="text-[var(--wt-accent)] underline underline-offset-2">info@lighthousesanctuary.com</a><br />
+              Phone: (801) 831-3323<br />
+              Website: <a href="https://www.lighthousesanctuary.org" target="_blank" rel="noopener noreferrer" className="text-[var(--wt-accent)] underline underline-offset-2">www.lighthousesanctuary.org</a>
+            </p>
+          </Section>
         </div>
       </div>
     </PageShell>
+  )
+}
+
+const PASSWORD_RULES = [
+  { id: 'length', label: 'At least 12 characters', test: (p: string) => p.length >= 12 },
+  { id: 'upper', label: 'Uppercase letter (A-Z)', test: (p: string) => /[A-Z]/.test(p) },
+  { id: 'lower', label: 'Lowercase letter (a-z)', test: (p: string) => /[a-z]/.test(p) },
+  { id: 'digit', label: 'Number (0-9)', test: (p: string) => /\d/.test(p) },
+  { id: 'special', label: 'Special character (!@#$…)', test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+] as const
+
+function PasswordStrength({ password }: { password: string }) {
+  if (!password) return null
+  return (
+    <ul className="mt-2 space-y-1">
+      {PASSWORD_RULES.map(rule => {
+        const pass = rule.test(password)
+        return (
+          <li key={rule.id} className={`text-xs flex items-center gap-1.5 ${pass ? 'text-green-600' : 'text-[var(--wt-text-2)]'}`}>
+            <span className={`inline-block w-3.5 h-3.5 rounded-full border text-center text-[10px] leading-[13px] font-bold ${pass ? 'border-green-600 bg-green-600 text-white' : 'border-[var(--wt-border)]'}`}>
+              {pass ? '✓' : ''}
+            </span>
+            {rule.label}
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -99,11 +253,19 @@ function LoginPage() {
     </svg>
   )
 
+  const passwordValid = PASSWORD_RULES.every(r => r.test(password))
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
     setNotice(null)
+
+    if (mode === 'signup' && !passwordValid) {
+      setError('Password does not meet all requirements. Please check the list below.')
+      setLoading(false)
+      return
+    }
 
     if (mode === 'signin') {
       const res = await signInWithPassword(email.trim(), password)
@@ -207,10 +369,12 @@ function LoginPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               type="password"
-              autoComplete="current-password"
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
               required
+              minLength={mode === 'signup' ? 12 : undefined}
               className="w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]"
             />
+            {mode === 'signup' && <PasswordStrength password={password} />}
           </div>
           {notice && <p className="text-sm text-[var(--wt-text-2)]">{notice}</p>}
           {error && <p className="text-sm text-[#dc2626]">{error}</p>}

@@ -1,12 +1,14 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
-import { Menu, X } from 'lucide-react'
+import { Menu, Moon, Sun, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../hooks/useTheme'
 import watchtowerLogo from '../assets/branding/watchtower-logo-transparent.png'
 
 export function PublicLayout() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { session, signOut } = useAuth()
+  const { theme, toggle: toggleTheme } = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -61,6 +63,14 @@ export function PublicLayout() {
             </nav>
 
             <div className="hidden md:flex items-center gap-3">
+              <button
+                onClick={toggleTheme}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors"
+                aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+                title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              >
+                {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+              </button>
               {session ? (
                 <button
                   onClick={handleSignOut}
