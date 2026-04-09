@@ -18,6 +18,7 @@ export function PublicLayout() {
       { to: '/blog', label: 'Blog' },
       { to: '/about', label: 'About' },
       { to: '/donations', label: 'Donations' },
+      { to: '/privacy', label: 'Privacy' },
     ]
     return publicLinks
   }, [session])
