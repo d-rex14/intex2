@@ -1,46 +1,31 @@
-import { ORG } from './org'
+import grahamImg from 'C:/Users/jrsch/.cursor/projects/c-Users-jrsch-OneDrive-Desktop-IS-Core-INTEX-3-0-intex2/assets/c__Users_jrsch_AppData_Roaming_Cursor_User_workspaceStorage_1a96fc19e0218a699355f274f5f5d3b9_images_Headshot_-_Copy-950477d5-a6e9-4480-9100-d610b16690d7.png'
+import blaneImg from 'C:/Users/jrsch/.cursor/projects/c-Users-jrsch-OneDrive-Desktop-IS-Core-INTEX-3-0-intex2/assets/c__Users_jrsch_AppData_Roaming_Cursor_User_workspaceStorage_1a96fc19e0218a699355f274f5f5d3b9_images_IMG_7252-1b3611cc-50b2-4a95-821a-438aabff5515.png'
+import devinImg from 'C:/Users/jrsch/.cursor/projects/c-Users-jrsch-OneDrive-Desktop-IS-Core-INTEX-3-0-intex2/assets/c__Users_jrsch_AppData_Roaming_Cursor_User_workspaceStorage_1a96fc19e0218a699355f274f5f5d3b9_images_IMG_1250-75a853c0-8b9a-41ed-b0f1-f33445e75580.png'
+import joshImg from 'C:/Users/jrsch/.cursor/projects/c-Users-jrsch-OneDrive-Desktop-IS-Core-INTEX-3-0-intex2/assets/c__Users_jrsch_AppData_Roaming_Cursor_User_workspaceStorage_1a96fc19e0218a699355f274f5f5d3b9_images_Schmitt__Joshua__1_-c5de3dc8-eecf-41ac-939f-a419df549755.png'
 
 export const BOARD = [
   {
-    name: 'Julie Hernando',
-    role: 'President / Co-Founder',
-    href: `${ORG.legacySite}/teammember/julie-hernando/`,
-    img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2015/01/IMG-1515-e1610446320615.jpg',
-  },
-  {
-    name: 'Lance Platt',
-    role: 'Vice President',
-    href: `${ORG.legacySite}/teammember/lance-platt/`,
-    img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/12/Lance-Platt-Headshot-scaled.jpg',
-  },
-  {
-    name: 'Candace Kunze',
-    role: 'Secretary of the Board',
-    href: `${ORG.legacySite}/teammember/candace-kunze/`,
-    img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2015/01/0B0A9558-e1610446299530.jpeg',
-  },
-  {
-    name: 'Kalli Kamauoha-Wilson',
+    name: 'Graham Fawson',
     role: 'Board Member',
-    href: `${ORG.legacySite}/teammember/kalli-kamauoha-wilson/`,
-    img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2024/10/KalliWilson.jpg',
+    href: '/board/graham-fawson',
+    img: grahamImg,
   },
   {
-    name: 'Russell J. Osguthorpe',
+    name: 'Blane Santilli',
     role: 'Board Member',
-    href: `${ORG.legacySite}/teammember/russell-j-osguthorpe-2/`,
-    img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/12/Russell-Osguthorpe_lighthouse.jpg',
+    href: '/board/blane-santilli',
+    img: blaneImg,
   },
   {
-    name: 'Apple Lanman',
+    name: 'Devin Holderness',
     role: 'Board Member',
-    href: `${ORG.legacySite}/teammember/apple-lanman/`,
-    img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2015/01/Apple-Lanman_lighthouse.jpeg',
+    href: '/board/devin-holderness',
+    img: devinImg,
   },
   {
-    name: 'Steven Shraedel',
+    name: 'Joshua Schmitt',
     role: 'Board Member',
-    href: `${ORG.legacySite}/teammember/steven-shraedel/`,
-    img: 'https://www.lighthousesanctuary.org/wp-content/uploads/2023/12/StevenTwoCleanedUp.jpeg',
+    href: '/board/joshua-schmitt',
+    img: joshImg,
   },
 ] as const

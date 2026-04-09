@@ -10,6 +10,7 @@ import { BlogPage } from './pages/public/BlogPage'
 import { ContactPage } from './pages/public/ContactPage'
 import { DonationsPage } from './pages/public/DonationsPage'
 import { HomePage } from './pages/public/HomePage'
+import { BoardMemberPage } from './pages/public/BoardMemberPage'
 import {
   BiologicalNeedsPage,
   EmpowermentPage,
@@ -508,6 +509,7 @@ export function App() {
           <Route index element={<HomePage />} />
           <Route path="blog" element={<BlogPage />} />
           <Route path="about" element={<AboutPage />} />
+          <Route path="board/:slug" element={<BoardMemberPage />} />
           <Route path="contact" element={<ContactPage />} />
           <Route path="social" element={<SocialPage />} />
           <Route path="donations" element={<DonationsPage />} />

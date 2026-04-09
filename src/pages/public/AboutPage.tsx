@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { BOARD } from '../../content/board'
 
 function PageShell({
@@ -122,19 +123,13 @@ export function AboutPage() {
       <h2 className="mt-16 font-display text-2xl font-bold text-[var(--wt-text)] text-center">Watchtower Sanctuary Board</h2>
       <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
         {BOARD.map(member => (
-          <a
-            key={member.href}
-            href={member.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-center group"
-          >
+          <Link key={member.href} to={member.href} className="text-center group">
             <div className="mx-auto w-36 h-36 rounded-full overflow-hidden border-2 border-[var(--wt-border)] group-hover:border-[var(--wt-accent)] transition-colors">
               <img src={member.img} alt="" className="w-full h-full object-cover" />
             </div>
             <p className="mt-3 font-semibold text-[var(--wt-text)] group-hover:text-[var(--wt-accent)]">{member.name}</p>
             <p className="text-sm text-[var(--wt-text-2)]">{member.role}</p>
-          </a>
+          </Link>
         ))}
       </div>
     </PageShell>
