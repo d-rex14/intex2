@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ORG } from '../content/org'
 import { useAuth } from '../context/AuthContext'
 import { campaignOptionsForSelect } from '../lib/fundraisingCampaigns'
 import { BASE_CURRENCY, convertCurrency, SUPPORTED_CURRENCIES } from '../lib/fxRates'
@@ -35,9 +36,12 @@ export function RecordedDonationForm() {
 
   if (!supabase) {
     return (
-      <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6 text-sm text-[var(--wt-text-2)]">
-        Connect Supabase (<code className="text-[var(--wt-accent)]">VITE_SUPABASE_URL</code> and{' '}
-        <code className="text-[var(--wt-accent)]">VITE_SUPABASE_ANON_KEY</code>) to record demo donations in the database.
+      <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6 text-sm text-[var(--wt-text-2)] leading-relaxed">
+        Online giving is temporarily unavailable. Please try again later or contact us at{' '}
+        <a href={`mailto:${ORG.emailContact}`} className="text-[var(--wt-accent)] hover:underline">
+          {ORG.emailContact}
+        </a>
+        .
       </div>
     )
   }
@@ -91,7 +95,7 @@ export function RecordedDonationForm() {
     }
 
     setMessage(
-      `Thank you. Your demo gift was recorded (donation #${(data as { donation_id?: number })?.donation_id ?? '—'}).`,
+      `Thank you for your generosity. Your gift was received (reference #${(data as { donation_id?: number })?.donation_id ?? '—'}). You may receive a confirmation email shortly.`,
     )
     setAmount('')
     setNotes('')
@@ -106,9 +110,10 @@ export function RecordedDonationForm() {
       className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6 space-y-4"
     >
       <div>
-        <h2 className="font-display text-xl font-bold text-[var(--wt-text)]">Record a contribution</h2>
+        <h2 className="font-display text-xl font-bold text-[var(--wt-text)]">Make a donation</h2>
         <p className="mt-1 text-sm text-[var(--wt-text-2)] leading-relaxed">
-          Input your donation information below.
+          Your information is sent securely. Required fields are marked; you will see a confirmation when your gift is
+          processed.
         </p>
       </div>
 
@@ -147,9 +152,7 @@ export function RecordedDonationForm() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)] mb-1">
-            Amount (demo)
-          </label>
+          <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Gift amount</label>
           <input
             value={amount}
             onChange={e => setAmount(e.target.value)}
@@ -176,18 +179,18 @@ export function RecordedDonationForm() {
       </div>
 
       <div>
-        <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Type</label>
-          <select
-            value={donationType}
-            onChange={e => setDonationType(e.target.value as DonationType)}
-            className="w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]"
-          >
-            {DONATION_TYPES.map(t => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+        <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)] mb-1">Gift type</label>
+        <select
+          value={donationType}
+          onChange={e => setDonationType(e.target.value as DonationType)}
+          className="w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]"
+        >
+          {DONATION_TYPES.map(t => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>
@@ -224,7 +227,7 @@ export function RecordedDonationForm() {
           onChange={e => setIsRecurring(e.target.checked)}
           className="rounded border-[var(--wt-border)]"
         />
-        Mark as recurring (demo flag only)
+        Make this a recurring gift
       </label>
 
       {error && <p className="text-sm text-[#dc2626]">{error}</p>}
@@ -235,7 +238,7 @@ export function RecordedDonationForm() {
         disabled={loading}
         className="w-full sm:w-auto rounded-lg bg-[var(--wt-accent)] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors disabled:opacity-60"
       >
-        {loading ? 'Saving…' : 'Submit demo donation'}
+        {loading ? 'Processing…' : 'Submit donation'}
       </button>
     </form>
   )
