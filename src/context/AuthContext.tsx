@@ -15,6 +15,8 @@ import {
 } from "../lib/roles";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 
+type AssuranceLevel = "aal1" | "aal2" | null;
+
 interface AuthContextValue {
   session: Session | null;
   user: User | null;
@@ -29,7 +31,12 @@ interface AuthContextValue {
   /** Loading `user_roles` for the current user. */
   rolesLoading: boolean;
   rolesError: string | null;
+  /** Current authenticator assurance level (null before check). */
+  aal: AssuranceLevel;
+  /** Whether the user has verified TOTP factors enrolled. */
+  hasMfaFactor: boolean;
   refetchRoles: () => void;
+  refreshAal: () => Promise<void>;
   signInWithPassword: (
     email: string,
     password: string,
@@ -53,6 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [rolesLoading, setRolesLoading] = useState(false);
   const [rolesError, setRolesError] = useState<string | null>(null);
   const [rolesTick, setRolesTick] = useState(0);
+  const [aal, setAal] = useState<AssuranceLevel>(null);
+  const [hasMfaFactor, setHasMfaFactor] = useState(false);
 
   useEffect(() => {
     if (!supabase) {
@@ -131,6 +140,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRolesTick((t) => t + 1);
   }, []);
 
+  const refreshAal = useCallback(async () => {
+    if (!supabase) {
+      setAal(null);
+      setHasMfaFactor(false);
+      return;
+    }
+    try {
+      const { data } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      setAal(
+        (data?.currentLevel as AssuranceLevel) ?? null,
+      );
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const verified =
+        factors?.totp?.filter((f) => f.status === "verified") ?? [];
+      setHasMfaFactor(verified.length > 0);
+    } catch {
+      setAal(null);
+      setHasMfaFactor(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (session?.user) {
+      refreshAal();
+    } else {
+      setAal(null);
+      setHasMfaFactor(false);
+    }
+  }, [session?.user?.id, refreshAal]);
+
   const signOut = useCallback(async () => {
     if (!supabase) return;
     setRoleIds([]);
@@ -156,7 +196,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       rolesLoading,
       rolesError,
+      aal,
+      hasMfaFactor,
       refetchRoles,
+      refreshAal,
       signInWithPassword: async (email: string, password: string) => {
         if (!supabase) {
           return {
@@ -214,7 +257,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     roleIds,
     rolesLoading,
     rolesError,
+    aal,
+    hasMfaFactor,
     refetchRoles,
+    refreshAal,
     signOut,
   ]);
 

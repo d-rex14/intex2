@@ -13,12 +13,14 @@ import {
   LogOut,
   Menu,
   Moon,
+  Shield,
   Sun,
   UserCog,
   Users,
   X,
 } from "lucide-react";
 import { RequirePortalAccess } from "../components/RequirePortalAccess";
+import { MfaEnroll } from "../components/MfaEnroll";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../hooks/useTheme";
 import { canAccessNavPath } from "../lib/roles";
@@ -42,26 +44,30 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
+
+  // Notification state
+  type NotificationRow = {
+    notification_id: number;
+    title: string;
+    body: string | null;
+    created_at: string;
+    read_at: string | null;
+    type: string;
+    payload_json: Record<string, unknown> | null;
+  };
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  // Profile editor state
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileNotice, setProfileNotice] = useState<string | null>(null);
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [notificationsError, setNotificationsError] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<
-    {
-      notification_id: number;
-      title: string;
-      body: string | null;
-      created_at: string;
-      read_at: string | null;
-      type: string;
-      payload_json: Record<string, unknown> | null;
-    }[]
-  >([]);
 
   const visibleNavItems = useMemo(() => {
     return navItems.filter((item) => {
@@ -297,6 +303,16 @@ export function AdminLayout() {
           </button>
         )}
         <button
+          onClick={() => setSecurityOpen(true)}
+          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors ${
+            collapsed && !mobile ? "justify-center" : ""
+          }`}
+          title={collapsed && !mobile ? "Account Security" : undefined}
+        >
+          <Shield size={16} />
+          {(!collapsed || mobile) && <span>Account Security</span>}
+        </button>
+        <button
           onClick={handleSignOut}
           className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,#dc2626_12%,transparent)] hover:text-[#dc2626] transition-colors ${
             collapsed && !mobile ? "justify-center" : ""
@@ -436,51 +452,22 @@ export function AdminLayout() {
           <RequirePortalAccess />
         </main>
       </div>
-      {profileOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl overflow-hidden">
-            <div className="p-6 border-b border-[var(--wt-border)]">
-              <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Edit Profile</h2>
-              <p className="mt-1 text-sm text-[var(--wt-text-2)]">Update your name and email.</p>
-            </div>
-            <div className="p-6 space-y-3">
-              {profileError && <p className="text-sm text-[#dc2626]">{profileError}</p>}
-              {profileNotice && <p className="text-sm text-[var(--wt-accent)]">{profileNotice}</p>}
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest block">
-                Display name
-                <input
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]"
-                />
-              </label>
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest block">
-                Email
-                <input
-                  type="email"
-                  value={profileEmail}
-                  onChange={(e) => setProfileEmail(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)]"
-                />
-              </label>
-            </div>
-            <div className="p-6 pt-2 border-t border-[var(--wt-border)] flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setProfileOpen(false)}
-                className="rounded-lg border border-[var(--wt-border)] px-4 py-2 text-sm text-[var(--wt-text)]"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={saveProfile}
-                disabled={profileSaving || !isSupabaseConfigured}
-                className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {profileSaving ? "Saving..." : "Save"}
-              </button>
-            </div>
+
+      {securityOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setSecurityOpen(false)}
+          />
+          <div className="relative w-full max-w-md mx-4 z-10">
+            <button
+              className="absolute -top-2 -right-2 z-20 rounded-full bg-[var(--wt-surface)] border border-[var(--wt-border)] p-1 text-[var(--wt-text-2)] hover:text-[var(--wt-text)]"
+              onClick={() => setSecurityOpen(false)}
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+            <MfaEnroll />
           </div>
         </div>
       )}
