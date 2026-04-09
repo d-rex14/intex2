@@ -492,13 +492,19 @@ function BarChart({
       </svg>
 
       {hoverIdx != null && pointsWithX[hoverIdx] && (
-        <div className="mt-2 text-xs text-[var(--wt-text-2)]">
-          <span className="text-[var(--wt-text)] font-semibold">
-            {formatMonthUTC(pointsWithX[hoverIdx].t)}
-          </span>
-          <span className="ml-3">
+        <div
+          className="pointer-events-none absolute z-10 rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-xs text-[var(--wt-text)] shadow-xl"
+          style={{
+            left: `${(pointsWithX[hoverIdx].x / width) * 100}%`,
+            top: `${Math.max(pointsWithX[hoverIdx].y - 12, 8)}px`,
+            transform: 'translate(-50%, -100%)',
+            maxWidth: 220,
+          }}
+        >
+          <div className="font-semibold">{formatMonthUTC(pointsWithX[hoverIdx].t)}</div>
+          <div className="text-[var(--wt-text-2)] mt-0.5">
             {formatMoney(currency, pointsWithX[hoverIdx].v)} total
-          </span>
+          </div>
         </div>
       )}
     </div>

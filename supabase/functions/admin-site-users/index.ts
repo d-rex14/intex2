@@ -119,31 +119,6 @@ Deno.serve(async (req) => {
   }
   const { user, admin: adminClient } = authResult
 
-  // Resolve admin role ID by name so this function works even if role IDs differ by environment.
-  const { data: adminRoleRow, error: adminRoleErr } = await adminClient
-    .from("roles")
-    .select("id")
-    .ilike("name", "admin")
-    .maybeSingle()
-  if (adminRoleErr) {
-    return json(req, { error: `Failed to resolve admin role: ${adminRoleErr.message}` }, 500)
-  }
-  const adminRoleId = adminRoleRow?.id as number | undefined
-  if (!adminRoleId) {
-    return json(req, { error: "Admin role not found in roles table" }, 500)
-  }
-
-  const { data: adminRow } = await adminClient
-    .from("user_roles")
-    .select("role_id")
-    .eq("user_id", user.id)
-    .eq("role_id", adminRoleId)
-    .maybeSingle()
-
-  if (!adminRow) {
-    return json(req, { error: "Forbidden: admin role required" }, 403)
-  }
-
   let body: Record<string, unknown>
   try {
     body = await req.json()
@@ -152,6 +127,35 @@ Deno.serve(async (req) => {
   }
 
   const action = body.action as string
+  const nonAdminActions = new Set(["clear_notifications"])
+
+  // Only selected actions are open to any authenticated user.
+  if (!nonAdminActions.has(action)) {
+    // Resolve admin role ID by name so this function works even if role IDs differ by environment.
+    const { data: adminRoleRow, error: adminRoleErr } = await adminClient
+      .from("roles")
+      .select("id")
+      .ilike("name", "admin")
+      .maybeSingle()
+    if (adminRoleErr) {
+      return json(req, { error: `Failed to resolve admin role: ${adminRoleErr.message}` }, 500)
+    }
+    const adminRoleId = adminRoleRow?.id as number | undefined
+    if (!adminRoleId) {
+      return json(req, { error: "Admin role not found in roles table" }, 500)
+    }
+
+    const { data: adminRow } = await adminClient
+      .from("user_roles")
+      .select("role_id")
+      .eq("user_id", user.id)
+      .eq("role_id", adminRoleId)
+      .maybeSingle()
+
+    if (!adminRow) {
+      return json(req, { error: "Forbidden: admin role required" }, 403)
+    }
+  }
 
   try {
     switch (action) {
@@ -416,18 +420,32 @@ Deno.serve(async (req) => {
         if (donationIds.length === 0) return json(req, { ok: true, inserted: 0 })
         const { data: existing, error: eErr } = await adminClient
           .from("notifications")
-          .select("payload_json")
+          .select("type, payload_json")
           .eq("recipient_user_id", user.id)
-          .eq("type", "donation_logged")
-          .limit(maxScan)
+          .in("type", ["donation_logged", "donation_log_cursor"])
+          .limit(maxScan + 50)
         if (eErr) throw eErr
         const known = new Set<number>()
+        let maxClearedDonationId = 0
         for (const r of existing ?? []) {
-          const v = (r.payload_json as Record<string, unknown> | null)?.donation_id
-          if (typeof v === "number") known.add(v)
+          const payload = r.payload_json as Record<string, unknown> | null
+          if (r.type === "donation_logged") {
+            const v = payload?.donation_id
+            if (typeof v === "number") known.add(v)
+          } else if (r.type === "donation_log_cursor") {
+            const v = payload?.max_donation_id
+            if (typeof v === "number" && Number.isFinite(v)) {
+              maxClearedDonationId = Math.max(maxClearedDonationId, v)
+            }
+          }
         }
         const inserts = (rows ?? [])
-          .filter((r) => !known.has(r.donation_id as number))
+          .filter((r) => {
+            const donationId = r.donation_id as number
+            if (!Number.isFinite(donationId)) return false
+            if (donationId <= maxClearedDonationId) return false
+            return !known.has(donationId)
+          })
           .map((r) => ({
             recipient_user_id: user.id,
             actor_user_id: null,
@@ -452,16 +470,47 @@ Deno.serve(async (req) => {
       case "clear_notifications": {
         const clearTypeRaw = typeof body.clear_type === "string" ? body.clear_type : "all"
         const clearType = clearTypeRaw.trim().toLowerCase()
-        const allowed = new Set(["all", "donation_logged", "donation_request"])
+        const allowed = new Set(["all", "donation_logged", "donation_request", "donation_thanks"])
         if (!allowed.has(clearType)) {
           return json(req, { error: "Invalid clear_type" }, 400)
         }
-        let q = adminClient.from("notifications").delete().eq("recipient_user_id", user.id)
-        if (clearType !== "all") {
-          q = q.eq("type", clearType)
+        let donationCursorMax = 0
+        if (clearType === "all" || clearType === "donation_logged") {
+          const { data: latestDonation } = await adminClient
+            .from("donations")
+            .select("donation_id")
+            .order("donation_id", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          donationCursorMax = Number(latestDonation?.donation_id ?? 0)
         }
-        const { error: delErr } = await q
-        if (delErr) throw delErr
+        if (clearType === "all") {
+          const { error: delAllErr } = await adminClient
+            .from("notifications")
+            .delete()
+            .eq("recipient_user_id", user.id)
+            .neq("type", "donation_log_cursor")
+          if (delAllErr) throw delAllErr
+        } else {
+          const { error: delTypeErr } = await adminClient
+            .from("notifications")
+            .delete()
+            .eq("recipient_user_id", user.id)
+            .eq("type", clearType)
+          if (delTypeErr) throw delTypeErr
+        }
+
+        if ((clearType === "all" || clearType === "donation_logged") && donationCursorMax > 0) {
+          const { error: cursorErr } = await adminClient.from("notifications").insert({
+            recipient_user_id: user.id,
+            actor_user_id: user.id,
+            type: "donation_log_cursor",
+            title: "Donation log cursor",
+            body: null,
+            payload_json: { max_donation_id: donationCursorMax },
+          })
+          if (cursorErr) throw cursorErr
+        }
         return json(req, { ok: true })
       }
 

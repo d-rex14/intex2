@@ -229,6 +229,7 @@ function LoginPage() {
   const [notice, setNotice] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [mode, setMode] = React.useState<'signin' | 'signup'>('signin')
+  const [verifyModalOpen, setVerifyModalOpen] = React.useState(false)
 
   if (session) return <Navigate to="/portal" replace />
 
@@ -274,7 +275,8 @@ function LoginPage() {
       const res = await signUpWithPassword(email.trim(), password)
       if (res.error) setError(res.error)
       else if (res.needsEmailConfirmation) {
-        setNotice('Account created. Check your email to confirm your address, then return to sign in.')
+        setNotice('Account created. Please verify your email before signing in.')
+        setVerifyModalOpen(true)
         setMode('signin')
         setPassword('')
       } else {
@@ -387,6 +389,27 @@ function LoginPage() {
           </button>
         </form>
       </div>
+      {verifyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl overflow-hidden">
+            <div className="p-6 border-b border-[var(--wt-border)]">
+              <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Verify your email</h2>
+              <p className="mt-1 text-sm text-[var(--wt-text-2)]">
+                We sent a verification link to your email. Open your inbox, verify your account, then come back and sign in.
+              </p>
+            </div>
+            <div className="p-6 pt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setVerifyModalOpen(false)}
+                className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
+              >
+                Okay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageShell>
   )
 }

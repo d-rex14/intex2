@@ -121,6 +121,7 @@ export function AdminLayout() {
       .from('notifications')
       .select('notification_id, title, body, created_at, read_at, type, payload_json')
       .eq('recipient_user_id', user.id)
+      .neq('type', 'donation_log_cursor')
       .order('created_at', { ascending: false })
       .limit(30);
     if (error) setNotificationsError(error.message);
