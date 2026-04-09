@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
 import { campaignOptionsForSelect } from '../../lib/fundraisingCampaigns'
@@ -637,6 +638,8 @@ function DonutChart({
 
 export function DonorsContributionsPage() {
   const { effectiveRoleIds } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const staff = isStaffLike(effectiveRoleIds)
 
   const [donationTypeFilter, setDonationTypeFilter] = useState<'all' | DonationType>('all')
@@ -658,6 +661,10 @@ export function DonorsContributionsPage() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [requestingSupporterId, setRequestingSupporterId] = useState<number | null>(null)
+  const [thankingDonationId, setThankingDonationId] = useState<number | null>(null)
+  const [donorSearch, setDonorSearch] = useState('')
+  const [donorPage, setDonorPage] = useState(1)
+  const [donorPageSize, setDonorPageSize] = useState<number>(10)
 
   const queryFn = useMemo(() => () => fetchDonations(), [])
   const { data: rawRows, loading, error, refetch } = useSupabaseQuery(queryFn)
@@ -936,6 +943,25 @@ export function DonorsContributionsPage() {
     return [...byKey.values()].sort((a, b) => b.total - a.total)
   }, [rawRows, currency])
 
+  const filteredDonorContacts = useMemo(() => {
+    const q = donorSearch.trim().toLowerCase()
+    if (!q) return donorContacts
+    return donorContacts.filter((d) =>
+      [d.donor, d.email, d.phone, d.region, d.country].join(' ').toLowerCase().includes(q),
+    )
+  }, [donorContacts, donorSearch])
+
+  const donorTotalPages = Math.max(1, Math.ceil(filteredDonorContacts.length / donorPageSize))
+
+  useEffect(() => {
+    if (donorPage > donorTotalPages) setDonorPage(donorTotalPages)
+  }, [donorPage, donorTotalPages])
+
+  const pagedDonorContacts = useMemo(() => {
+    const start = (donorPage - 1) * donorPageSize
+    return filteredDonorContacts.slice(start, start + donorPageSize)
+  }, [filteredDonorContacts, donorPage, donorPageSize])
+
   const requestDonation = async (donor: {
     supporter_id: number | null
     donor: string
@@ -950,6 +976,25 @@ export function DonorsContributionsPage() {
     if (!res.ok) setFormError(res.error)
     setRequestingSupporterId(null)
   }
+
+  const sendThanks = async (row: DonationWithSupporter) => {
+    setThankingDonationId(row.donation_id)
+    setFormError(null)
+    const res = await invokeAdmin('give_thanks', {
+      donation_id: row.donation_id,
+    })
+    if (!res.ok) setFormError(res.error)
+    setThankingDonationId(null)
+  }
+
+  useEffect(() => {
+    const openDonationIdRaw = (location.state as { openDonationId?: unknown } | null)?.openDonationId
+    if (typeof openDonationIdRaw !== 'number' || !Number.isInteger(openDonationIdRaw)) return
+    if (!rawRows || rawRows.length === 0) return
+    const row = rawRows.find((r) => r.donation_id === openDonationIdRaw)
+    if (row) setDetailRow(row)
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location, navigate, rawRows])
 
   const saveEdit = async () => {
     if (!supabase || !editing) return
@@ -1497,6 +1542,36 @@ export function DonorsContributionsPage() {
       <div className="pt-2">
         <h2 className="text-xs uppercase tracking-widest text-[var(--wt-text-2)]">Donor Contact List</h2>
       </div>
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3 rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] px-4 py-3">
+        <label className="flex flex-col gap-1 min-w-[14rem]">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Search donors</span>
+          <input
+            type="text"
+            value={donorSearch}
+            onChange={(e) => {
+              setDonorSearch(e.target.value)
+              setDonorPage(1)
+            }}
+            placeholder="Name, email, phone, region, country..."
+            className={selectClass}
+          />
+        </label>
+        <label className="flex flex-col gap-1 min-w-[8rem]">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Rows per page</span>
+          <select
+            className={selectClass}
+            value={donorPageSize}
+            onChange={(e) => {
+              setDonorPageSize(Number(e.target.value))
+              setDonorPage(1)
+            }}
+          >
+            {[10, 25, 50].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -1513,7 +1588,7 @@ export function DonorsContributionsPage() {
               </tr>
             </thead>
             <tbody>
-              {donorContacts.map((d) => (
+              {pagedDonorContacts.map((d) => (
                 <tr
                   key={d.key}
                   className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)] cursor-pointer"
@@ -1548,7 +1623,7 @@ export function DonorsContributionsPage() {
                   )}
                 </tr>
               ))}
-              {donorContacts.length === 0 && (
+              {pagedDonorContacts.length === 0 && (
                 <tr>
                   <td colSpan={staff ? 8 : 7} className="px-4 py-6 text-center text-[var(--wt-text-2)]">
                     No donor contacts available.
@@ -1559,6 +1634,47 @@ export function DonorsContributionsPage() {
           </table>
         </div>
       </div>
+      {filteredDonorContacts.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-[var(--wt-text)]">
+          <p className="text-[var(--wt-text-2)] tabular-nums">
+            Donor page {donorPage} of {donorTotalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={donorPage <= 1}
+              onClick={() => setDonorPage(1)}
+              className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:pointer-events-none"
+            >
+              First
+            </button>
+            <button
+              type="button"
+              disabled={donorPage <= 1}
+              onClick={() => setDonorPage((p) => Math.max(1, p - 1))}
+              className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:pointer-events-none"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              disabled={donorPage >= donorTotalPages}
+              onClick={() => setDonorPage((p) => Math.min(donorTotalPages, p + 1))}
+              className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:pointer-events-none"
+            >
+              Next
+            </button>
+            <button
+              type="button"
+              disabled={donorPage >= donorTotalPages}
+              onClick={() => setDonorPage(donorTotalPages)}
+              className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-1.5 text-xs font-medium disabled:opacity-40 disabled:pointer-events-none"
+            >
+              Last
+            </button>
+          </div>
+        </div>
+      )}
 
       {detailRow && (
         <div
@@ -1610,7 +1726,17 @@ export function DonorsContributionsPage() {
                 )}
               </DetailField>
             </dl>
-            <div className="p-6 pt-2 flex justify-end border-t border-[var(--wt-border)]">
+            <div className="p-6 pt-2 flex items-center justify-end gap-2 border-t border-[var(--wt-border)]">
+              {staff && (
+                <button
+                  type="button"
+                  onClick={() => void sendThanks(detailRow)}
+                  disabled={thankingDonationId === detailRow.donation_id}
+                  className="rounded-lg border border-[var(--wt-border)] px-4 py-2 text-sm font-semibold text-[var(--wt-accent)] disabled:opacity-60"
+                >
+                  {thankingDonationId === detailRow.donation_id ? 'Sending...' : 'Give Thanks'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setDetailRow(null)}

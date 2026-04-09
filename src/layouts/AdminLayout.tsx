@@ -52,7 +52,15 @@ export function AdminLayout() {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<
-    { notification_id: number; title: string; body: string | null; created_at: string; read_at: string | null; type: string }[]
+    {
+      notification_id: number;
+      title: string;
+      body: string | null;
+      created_at: string;
+      read_at: string | null;
+      type: string;
+      payload_json: Record<string, unknown> | null;
+    }[]
   >([]);
 
   const visibleNavItems = useMemo(() => {
@@ -111,7 +119,7 @@ export function AdminLayout() {
     setNotificationsError(null);
     const { data, error } = await supabase
       .from('notifications')
-      .select('notification_id, title, body, created_at, read_at, type')
+      .select('notification_id, title, body, created_at, read_at, type, payload_json')
       .eq('recipient_user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(30);
@@ -133,6 +141,39 @@ export function AdminLayout() {
     else await refreshNotifications();
   }, [notifications, user?.id, refreshNotifications]);
 
+  const clearNotifications = useCallback(async () => {
+    if (!supabase) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const baseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '');
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (!token || !baseUrl || !anonKey) return;
+    setNotificationsLoading(true);
+    setNotificationsError(null);
+    try {
+      const res = await fetch(`${baseUrl}/functions/v1/admin-site-users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: anonKey,
+          Authorization: `Bearer ${token}`,
+          'X-Supabase-Access-Token': token,
+        },
+        body: JSON.stringify({ action: 'clear_notifications', clear_type: 'all' }),
+      });
+      const text = await res.text();
+      const body = text ? (JSON.parse(text) as { error?: string }) : {};
+      if (!res.ok || body.error) {
+        setNotificationsError(body.error ?? `Failed to clear notifications (${res.status})`);
+      } else {
+        setNotifications([]);
+      }
+    } catch (e) {
+      setNotificationsError(e instanceof Error ? e.message : String(e));
+    }
+    setNotificationsLoading(false);
+  }, []);
+
   const markOneRead = useCallback(async (notificationId: number) => {
     if (!supabase) return;
     const { error } = await supabase
@@ -144,6 +185,12 @@ export function AdminLayout() {
       setNotifications(prev => prev.map(n => n.notification_id === notificationId ? { ...n, read_at: new Date().toISOString() } : n));
     }
   }, []);
+
+  const donationIdFromNotification = (n: (typeof notifications)[number]): number | null => {
+    if (n.type !== 'donation_logged') return null;
+    const donationId = n.payload_json?.donation_id;
+    return typeof donationId === 'number' && Number.isInteger(donationId) ? donationId : null;
+  };
 
   const syncAdminDonationLogs = useCallback(async (): Promise<boolean> => {
     if (!supabase || role !== 'admin') return false;
@@ -336,9 +383,14 @@ export function AdminLayout() {
             <div className="absolute right-16 top-12 z-40 w-80 rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl overflow-hidden">
               <div className="px-3 py-2 border-b border-[var(--wt-border)] flex items-center justify-between">
                 <span className="text-xs uppercase tracking-widest text-[var(--wt-text-2)]">Notifications</span>
-                <button type="button" onClick={() => void markAllRead()} className="text-[10px] text-[var(--wt-accent)] uppercase tracking-widest">
-                  Mark all read
-                </button>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => void markAllRead()} className="text-[10px] text-[var(--wt-accent)] uppercase tracking-widest">
+                    Mark all read
+                  </button>
+                  <button type="button" onClick={() => void clearNotifications()} className="text-[10px] text-[#dc2626] uppercase tracking-widest">
+                    Clear
+                  </button>
+                </div>
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {notificationsLoading ? (
@@ -352,7 +404,14 @@ export function AdminLayout() {
                     <button
                       key={n.notification_id}
                       type="button"
-                      onClick={() => void markOneRead(n.notification_id)}
+                      onClick={() => {
+                        void markOneRead(n.notification_id);
+                        const donationId = donationIdFromNotification(n);
+                        if (donationId != null) {
+                          navigate('/portal/donors', { state: { openDonationId: donationId } });
+                          setNotificationsOpen(false);
+                        }
+                      }}
                       className={`w-full text-left px-3 py-3 border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_10%,transparent)] ${n.read_at ? 'opacity-80' : ''}`}
                     >
                       <p className="text-sm text-[var(--wt-text)] font-medium">{n.title}</p>

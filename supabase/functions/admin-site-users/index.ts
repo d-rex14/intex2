@@ -449,6 +449,99 @@ Deno.serve(async (req) => {
         return json(req, { ok: true, inserted: inserts.length })
       }
 
+      case "clear_notifications": {
+        const clearTypeRaw = typeof body.clear_type === "string" ? body.clear_type : "all"
+        const clearType = clearTypeRaw.trim().toLowerCase()
+        const allowed = new Set(["all", "donation_logged", "donation_request"])
+        if (!allowed.has(clearType)) {
+          return json(req, { error: "Invalid clear_type" }, 400)
+        }
+        let q = adminClient.from("notifications").delete().eq("recipient_user_id", user.id)
+        if (clearType !== "all") {
+          q = q.eq("type", clearType)
+        }
+        const { error: delErr } = await q
+        if (delErr) throw delErr
+        return json(req, { ok: true })
+      }
+
+      case "give_thanks": {
+        const donationId = Number(body.donation_id)
+        if (!Number.isInteger(donationId) || donationId <= 0) {
+          return json(req, { error: "Valid donation_id is required" }, 400)
+        }
+        const { data: donation, error: donationErr } = await adminClient
+          .from("donations")
+          .select(`
+            donation_id,
+            donation_type,
+            amount,
+            estimated_value,
+            supporters (
+              supporter_id,
+              display_name,
+              email,
+              auth_user_id
+            )
+          `)
+          .eq("donation_id", donationId)
+          .maybeSingle()
+        if (donationErr) throw donationErr
+        if (!donation) return json(req, { error: "Donation not found" }, 404)
+
+        const supporterRaw = (donation.supporters as Record<string, unknown> | Record<string, unknown>[] | null)
+        const supporter = Array.isArray(supporterRaw) ? (supporterRaw[0] ?? null) : supporterRaw
+        if (!supporter) return json(req, { error: "Donation supporter not found" }, 400)
+
+        const supporterId = Number(supporter.supporter_id)
+        const donorName = typeof supporter.display_name === "string" ? supporter.display_name : null
+        const donationType = typeof donation.donation_type === "string" ? donation.donation_type : "Donation"
+        const donationAmount = donation.amount ?? donation.estimated_value ?? null
+
+        let recipientId = typeof supporter.auth_user_id === "string" ? supporter.auth_user_id : null
+        const supporterEmail = typeof supporter.email === "string" ? supporter.email : null
+        if (!recipientId && supporterEmail) {
+          const { data: usersData, error: usersErr } = await adminClient.auth.admin.listUsers({
+            page: 1,
+            perPage: 1000,
+          })
+          if (usersErr) throw usersErr
+          const match = (usersData?.users ?? []).find((u) =>
+            (u.email ?? "").toLowerCase() === supporterEmail.toLowerCase()
+          )
+          recipientId = match?.id ?? null
+          if (recipientId && Number.isInteger(supporterId) && supporterId > 0) {
+            await adminClient
+              .from("supporters")
+              .update({ auth_user_id: recipientId })
+              .eq("supporter_id", supporterId)
+          }
+        }
+        if (!recipientId) {
+          return json(req, { error: "Supporter is not linked to a site account." }, 400)
+        }
+
+        const actorName = displayNameFromUser(user) || (user.email ?? "Lighthouse team")
+        const amountText = typeof donationAmount === "number" && Number.isFinite(donationAmount)
+          ? ` (${donationAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })})`
+          : ""
+        const { error: insertErr } = await adminClient.from("notifications").insert({
+          recipient_user_id: recipientId,
+          actor_user_id: user.id,
+          type: "donation_thanks",
+          title: "Thank you from Lighthouse",
+          body: `${actorName} thanked you for your ${donationType} contribution${amountText}.`,
+          payload_json: {
+            donation_id: donationId,
+            supporter_id: Number.isInteger(supporterId) ? supporterId : null,
+            donor_name: donorName,
+            thanked_by_user_id: user.id,
+          },
+        })
+        if (insertErr) throw insertErr
+        return json(req, { ok: true })
+      }
+
       default:
         return json(req, { error: "Unknown action" }, 400)
     }
