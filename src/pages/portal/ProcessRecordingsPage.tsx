@@ -20,27 +20,36 @@ type RecordingRow = {
   referral_made: boolean | null
   notes_restricted: string | null
   residents?: {
-    first_name?: string | null
-    last_name?: string | null
-  } | { first_name?: string | null; last_name?: string | null }[] | null
+    internal_code?: string | null
+    case_control_no?: string | null
+  } | { internal_code?: string | null; case_control_no?: string | null }[] | null
 }
 
 type ResidentOption = {
   resident_id: number
-  first_name: string | null
-  last_name: string | null
+  internal_code: string | null
+  case_control_no: string | null
+}
+
+function residentCodesLabel(internal_code?: string | null, case_control_no?: string | null): string {
+  const code = (internal_code ?? '').trim()
+  const cc = (case_control_no ?? '').trim()
+  if (code && cc) return `${code} (${cc})`
+  if (code) return code
+  if (cc) return cc
+  return ''
 }
 
 function embedResident(
   r: RecordingRow['residents'],
-): { first_name?: string | null; last_name?: string | null } | null {
+): { internal_code?: string | null; case_control_no?: string | null } | null {
   if (r == null) return null
   return Array.isArray(r) ? (r[0] ?? null) : r
 }
 
 function residentLabel(row: RecordingRow): string {
   const r = embedResident(row.residents)
-  const parts = [r?.first_name, r?.last_name].filter(Boolean).join(' ').trim()
+  const parts = residentCodesLabel(r?.internal_code, r?.case_control_no)
   if (parts) return parts
   if (row.resident_id != null) return `Resident #${row.resident_id}`
   return '—'
@@ -88,7 +97,7 @@ async function fetchRecordings(): Promise<{ data: RecordingRow[] | null; error: 
         concerns_flagged,
         referral_made,
         notes_restricted,
-        residents ( first_name, last_name )
+        residents ( internal_code, case_control_no )
       `,
     )
     .order('session_date', { ascending: false })
@@ -102,7 +111,7 @@ async function fetchResidentOptions(): Promise<{ data: ResidentOption[] | null; 
   if (!supabase) return { data: null, error: { message: 'Supabase is not configured.' } }
   const { data, error } = await supabase
     .from('residents')
-    .select('resident_id, first_name, last_name')
+    .select('resident_id, internal_code, case_control_no')
     .order('resident_id', { ascending: true })
     .limit(2000)
   if (error) return { data: null, error: { message: error.message } }
@@ -414,7 +423,7 @@ export function ProcessRecordingsPage() {
           >
             <option value="all">All residents</option>
             {(residentOptions ?? []).map((r) => {
-              const name = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || `Resident #${r.resident_id}`
+              const name = residentCodesLabel(r.internal_code, r.case_control_no) || `Resident #${r.resident_id}`
               return (
                 <option key={r.resident_id} value={String(r.resident_id)}>
                   {name}
@@ -720,7 +729,7 @@ export function ProcessRecordingsPage() {
                 >
                   <option value="">—</option>
                   {(residentOptions ?? []).map((r) => {
-                    const name = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || `Resident #${r.resident_id}`
+                    const name = residentCodesLabel(r.internal_code, r.case_control_no) || `Resident #${r.resident_id}`
                     return (
                       <option key={r.resident_id} value={String(r.resident_id)}>
                         {name}
