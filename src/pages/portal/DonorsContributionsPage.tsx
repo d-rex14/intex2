@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useEffect, useMemo, useState } from 'react'
+import { X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
 import { campaignOptionsForSelect } from '../../lib/fundraisingCampaigns'
@@ -81,11 +82,16 @@ function BandPill({ band, type }: { band: string; type: 'upgrade' | 'churn' }) {
 }
 
 type SupporterEmbed = {
+  supporter_id?: number | null
   display_name: string | null
   organization_name: string | null
   first_name: string | null
   last_name: string | null
   email: string | null
+  phone?: string | null
+  region?: string | null
+  country?: string | null
+  auth_user_id?: string | null
 } | null
 
 export type DonationWithSupporter = {
@@ -201,11 +207,16 @@ async function fetchDonations(): Promise<{
       impact_unit,
       notes,
       supporters (
+        supporter_id,
         display_name,
         organization_name,
         first_name,
         last_name,
-        email
+        email,
+        phone,
+        region,
+        country,
+        auth_user_id
       )
     `)
     .limit(1000)
@@ -221,6 +232,35 @@ async function fetchDonations(): Promise<{
     return { ...r, supporters: embedSupporter(r.supporters) }
   })
   return { data: rows, error: null }
+}
+
+async function invokeAdmin(action: string, payload: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!supabase) return { ok: false, error: 'Supabase is not configured.' }
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+  if (!session) return { ok: false, error: sessionError?.message ?? 'You must be signed in.' }
+  const baseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '')
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  if (!baseUrl || !anonKey) return { ok: false, error: 'Supabase URL or anon key is not configured.' }
+  try {
+    const token = session.access_token
+    const res = await fetch(`${baseUrl}/functions/v1/admin-site-users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: anonKey,
+        Authorization: `Bearer ${token}`,
+        'X-Supabase-Access-Token': token,
+      },
+      body: JSON.stringify({ action, ...payload }),
+    })
+    const text = await res.text()
+    const data = text ? (JSON.parse(text) as { error?: string }) : {}
+    if (!res.ok) return { ok: false, error: data.error ?? `Request failed (${res.status})` }
+    if (data.error) return { ok: false, error: data.error }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
 }
 
 async function fetchAllocations(): Promise<{
@@ -617,6 +657,7 @@ export function DonorsContributionsPage() {
   const [deleting, setDeleting] = useState<DonationWithSupporter | null>(null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [requestingSupporterId, setRequestingSupporterId] = useState<number | null>(null)
 
   const queryFn = useMemo(() => () => fetchDonations(), [])
   const { data: rawRows, loading, error, refetch } = useSupabaseQuery(queryFn)
@@ -848,6 +889,67 @@ export function DonorsContributionsPage() {
 
   const rangeFrom = totalFiltered === 0 ? 0 : (page - 1) * pageSize + 1
   const rangeTo = Math.min(page * pageSize, totalFiltered)
+
+  const donorContacts = useMemo(() => {
+    const rows = rawRows ?? []
+    const byKey = new Map<string, {
+      key: string
+      donor: string
+      email: string
+      phone: string
+      region: string
+      country: string
+      supporter_id: number | null
+      donationCount: number
+      total: number
+      isSiteDonor: boolean
+      lastDonation: string | null
+    }>()
+    for (const r of rows) {
+      const s = r.supporters
+      const email = s?.email?.trim() || donorEmail(r)
+      const key = r.supporter_id != null ? `supporter:${r.supporter_id}` : `email:${email.toLowerCase()}`
+      const fromCur = (r.currency_code ?? BASE_CURRENCY).trim() || BASE_CURRENCY
+      const val = Number(r.amount ?? r.estimated_value ?? 0)
+      const fx = Number.isFinite(val) ? convertCurrency(val, fromCur, currency).converted ?? 0 : 0
+      const prev = byKey.get(key) ?? {
+        key,
+        donor: donorLabel(r),
+        email,
+        phone: s?.phone?.trim() || '—',
+        region: s?.region?.trim() || '—',
+        country: s?.country?.trim() || '—',
+        supporter_id: r.supporter_id ?? s?.supporter_id ?? null,
+        donationCount: 0,
+        total: 0,
+        isSiteDonor: Boolean(s?.auth_user_id || email !== '—'),
+        lastDonation: r.donation_date ?? null,
+      }
+      prev.donationCount += 1
+      prev.total += fx
+      if ((r.donation_date ?? '') > (prev.lastDonation ?? '')) prev.lastDonation = r.donation_date ?? null
+      if (prev.phone === '—' && s?.phone?.trim()) prev.phone = s.phone.trim()
+      if (prev.region === '—' && s?.region?.trim()) prev.region = s.region.trim()
+      if (prev.country === '—' && s?.country?.trim()) prev.country = s.country.trim()
+      byKey.set(key, prev)
+    }
+    return [...byKey.values()].sort((a, b) => b.total - a.total)
+  }, [rawRows, currency])
+
+  const requestDonation = async (donor: {
+    supporter_id: number | null
+    donor: string
+  }) => {
+    if (!donor.supporter_id) return
+    setRequestingSupporterId(donor.supporter_id)
+    setFormError(null)
+    const res = await invokeAdmin('request_donation', {
+      supporter_id: donor.supporter_id,
+      message: `Hi ${donor.donor}, Lighthouse invited you to make a new donation.`,
+    })
+    if (!res.ok) setFormError(res.error)
+    setRequestingSupporterId(null)
+  }
 
   const saveEdit = async () => {
     if (!supabase || !editing) return
@@ -1392,6 +1494,72 @@ export function DonorsContributionsPage() {
         </div>
       )}
 
+      <div className="pt-2">
+        <h2 className="text-xs uppercase tracking-widest text-[var(--wt-text-2)]">Donor Contact List</h2>
+      </div>
+      <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
+                <th className="px-4 py-3 font-medium">Donor</th>
+                <th className="px-4 py-3 font-medium">Email</th>
+                <th className="px-4 py-3 font-medium">Phone</th>
+                <th className="px-4 py-3 font-medium">Region</th>
+                <th className="px-4 py-3 font-medium">Country</th>
+                <th className="px-4 py-3 font-medium text-right">Donations</th>
+                <th className="px-4 py-3 font-medium text-right">Total ({currency})</th>
+                {staff && <th className="px-4 py-3 font-medium text-right">Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {donorContacts.map((d) => (
+                <tr
+                  key={d.key}
+                  className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)] cursor-pointer"
+                  onClick={() => setDonorDetailKey(d.key)}
+                  title="Click to view donor details"
+                >
+                  <td className="px-4 py-3 text-[var(--wt-text)] font-medium">{d.donor}</td>
+                  <td className="px-4 py-3 text-[var(--wt-text)]">{d.email}</td>
+                  <td className="px-4 py-3 text-[var(--wt-text)]">{d.phone}</td>
+                  <td className="px-4 py-3 text-[var(--wt-text)]">{d.region}</td>
+                  <td className="px-4 py-3 text-[var(--wt-text)]">{d.country}</td>
+                  <td className="px-4 py-3 text-right text-[var(--wt-text)] tabular-nums">{d.donationCount}</td>
+                  <td className="px-4 py-3 text-right text-[var(--wt-text)] tabular-nums">{formatMoney(currency, d.total)}</td>
+                  {staff && (
+                    <td className="px-4 py-3 text-right">
+                      {d.isSiteDonor && d.supporter_id ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void requestDonation(d)
+                          }}
+                          disabled={requestingSupporterId === d.supporter_id}
+                          className="rounded-lg border border-[var(--wt-border)] px-2 py-1 text-xs text-[var(--wt-accent)] disabled:opacity-50"
+                        >
+                          {requestingSupporterId === d.supporter_id ? 'Sending...' : 'Request Donation'}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-[var(--wt-text-2)]">No site account</span>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {donorContacts.length === 0 && (
+                <tr>
+                  <td colSpan={staff ? 8 : 7} className="px-4 py-6 text-center text-[var(--wt-text-2)]">
+                    No donor contacts available.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {detailRow && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
@@ -1399,16 +1567,24 @@ export function DonorsContributionsPage() {
           role="presentation"
         >
           <div
-            className="w-full max-w-lg rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-xl"
+            className="w-full max-w-lg rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl overflow-hidden"
             role="dialog"
             aria-labelledby="donation-detail-title"
             onClick={e => e.stopPropagation()}
           >
+            <div className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="p-6 space-y-4 border-b border-[var(--wt-border)]">
-              <h2 id="donation-detail-title" className="font-display text-lg font-bold text-[var(--wt-text)]">
-                Donation report
-              </h2>
-              <p className="text-xs text-[var(--wt-text-2)]">Full record for this contribution.</p>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 id="donation-detail-title" className="font-display text-lg font-bold text-[var(--wt-text)]">
+                    Donation report
+                  </h2>
+                  <p className="text-xs text-[var(--wt-text-2)]">Full record for this contribution.</p>
+                </div>
+                <button type="button" onClick={() => setDetailRow(null)} className="rounded-lg border border-[var(--wt-border)] p-2 text-[var(--wt-text-2)] hover:text-[var(--wt-text)]">
+                  <X size={14} />
+                </button>
+              </div>
             </div>
             <dl className="px-6 py-2">
               <DetailField label="Donation ID">{detailRow.donation_id}</DetailField>
@@ -1443,6 +1619,7 @@ export function DonorsContributionsPage() {
                 Close
               </button>
             </div>
+            </div>
           </div>
         </div>
       )}
@@ -1454,11 +1631,12 @@ export function DonorsContributionsPage() {
           role="presentation"
         >
           <div
-            className="w-full max-w-2xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-xl"
+            className="w-full max-w-2xl rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl overflow-hidden"
             role="dialog"
             aria-labelledby="donor-detail-title"
             onClick={e => e.stopPropagation()}
           >
+            <div className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="p-6 border-b border-[var(--wt-border)] flex items-start justify-between gap-4">
               <div>
                 <h2 id="donor-detail-title" className="font-display text-lg font-bold text-[var(--wt-text)]">
@@ -1473,7 +1651,7 @@ export function DonorsContributionsPage() {
                 onClick={() => setDonorDetailKey(null)}
                 className="rounded-lg border border-[var(--wt-border)] px-3 py-2 text-sm text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_14%,transparent)]"
               >
-                Close
+                <X size={14} />
               </button>
             </div>
 
@@ -1560,6 +1738,7 @@ export function DonorsContributionsPage() {
                   </table>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>

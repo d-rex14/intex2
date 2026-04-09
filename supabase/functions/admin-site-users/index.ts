@@ -350,6 +350,105 @@ Deno.serve(async (req) => {
         return json(req, { ok: true, resident_id: residentId, internal_code: internalCode })
       }
 
+      case "request_donation": {
+        const supporterId = Number(body.supporter_id)
+        const message = String(body.message ?? "").trim()
+        if (!Number.isInteger(supporterId) || supporterId <= 0) {
+          return json(req, { error: "Valid supporter_id is required" }, 400)
+        }
+        const { data: supporter, error: sErr } = await adminClient
+          .from("supporters")
+          .select("supporter_id, display_name, email, auth_user_id")
+          .eq("supporter_id", supporterId)
+          .maybeSingle()
+        if (sErr) throw sErr
+        if (!supporter) return json(req, { error: "Supporter not found" }, 404)
+
+        let recipientId = supporter.auth_user_id as string | null
+        if (!recipientId && supporter.email) {
+          const { data: usersData, error: usersErr } = await adminClient.auth.admin.listUsers({
+            page: 1,
+            perPage: 1000,
+          })
+          if (usersErr) throw usersErr
+          const match = (usersData?.users ?? []).find((u) =>
+            (u.email ?? "").toLowerCase() === String(supporter.email).toLowerCase()
+          )
+          recipientId = match?.id ?? null
+          if (recipientId) {
+            await adminClient
+              .from("supporters")
+              .update({ auth_user_id: recipientId })
+              .eq("supporter_id", supporterId)
+          }
+        }
+        if (!recipientId) {
+          return json(req, { error: "Supporter is not linked to a site account." }, 400)
+        }
+        const title = "Donation request from Lighthouse"
+        const bodyText = message || "A team member invited you to make a new donation."
+        const payload = {
+          supporter_id: supporterId,
+          supporter_name: supporter.display_name ?? null,
+          requested_by_user_id: user.id,
+        }
+        const { error: nErr } = await adminClient.from("notifications").insert({
+          recipient_user_id: recipientId,
+          actor_user_id: user.id,
+          type: "donation_request",
+          title,
+          body: bodyText,
+          payload_json: payload,
+        })
+        if (nErr) throw nErr
+        return json(req, { ok: true })
+      }
+
+      case "sync_donation_logs": {
+        const maxScan = Math.min(1000, Math.max(1, Number(body.maxScan) || 400))
+        const { data: rows, error: dErr } = await adminClient
+          .from("donations")
+          .select("donation_id, donation_date, amount, estimated_value, donation_type, supporter_id")
+          .order("donation_id", { ascending: false })
+          .limit(maxScan)
+        if (dErr) throw dErr
+        const donationIds = (rows ?? []).map((r) => r.donation_id as number)
+        if (donationIds.length === 0) return json(req, { ok: true, inserted: 0 })
+        const { data: existing, error: eErr } = await adminClient
+          .from("notifications")
+          .select("payload_json")
+          .eq("recipient_user_id", user.id)
+          .eq("type", "donation_logged")
+          .limit(maxScan)
+        if (eErr) throw eErr
+        const known = new Set<number>()
+        for (const r of existing ?? []) {
+          const v = (r.payload_json as Record<string, unknown> | null)?.donation_id
+          if (typeof v === "number") known.add(v)
+        }
+        const inserts = (rows ?? [])
+          .filter((r) => !known.has(r.donation_id as number))
+          .map((r) => ({
+            recipient_user_id: user.id,
+            actor_user_id: null,
+            type: "donation_logged",
+            title: "New donation logged",
+            body: `Donation #${r.donation_id} (${r.donation_type ?? "Unknown"}) was added.`,
+            payload_json: {
+              donation_id: r.donation_id,
+              donation_date: r.donation_date,
+              amount: r.amount,
+              estimated_value: r.estimated_value,
+              supporter_id: r.supporter_id,
+            },
+          }))
+        if (inserts.length > 0) {
+          const { error: iErr } = await adminClient.from("notifications").insert(inserts)
+          if (iErr) throw iErr
+        }
+        return json(req, { ok: true, inserted: inserts.length })
+      }
+
       default:
         return json(req, { error: "Unknown action" }, 400)
     }

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   Bell,
   ChevronLeft,
+  Cog,
   ClipboardList,
   FileText,
   FolderOpen,
@@ -47,6 +48,12 @@ export function AdminLayout() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileNotice, setProfileNotice] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<
+    { notification_id: number; title: string; body: string | null; created_at: string; read_at: string | null; type: string }[]
+  >([]);
 
   const visibleNavItems = useMemo(() => {
     return navItems.filter((item) => {
@@ -58,6 +65,7 @@ export function AdminLayout() {
   }, [effectiveRoleIds, rolesLoading]);
 
   const portalLabel = role === 'donor' ? 'Donor Portal' : 'Staff Portal';
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read_at).length, [notifications]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -96,6 +104,73 @@ export function AdminLayout() {
     else setProfileNotice("Profile updated. If email changed, check your inbox for confirmation.");
     setProfileSaving(false);
   };
+
+  const refreshNotifications = useCallback(async () => {
+    if (!supabase || !user?.id) return;
+    setNotificationsLoading(true);
+    setNotificationsError(null);
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('notification_id, title, body, created_at, read_at, type')
+      .eq('recipient_user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (error) setNotificationsError(error.message);
+    else setNotifications((data ?? []) as typeof notifications);
+    setNotificationsLoading(false);
+  }, [user?.id]);
+
+  const markAllRead = useCallback(async () => {
+    if (!supabase || !user?.id) return;
+    const unread = notifications.filter(n => !n.read_at).map(n => n.notification_id);
+    if (unread.length === 0) return;
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('recipient_user_id', user.id)
+      .is('read_at', null);
+    if (error) setNotificationsError(error.message);
+    else await refreshNotifications();
+  }, [notifications, user?.id, refreshNotifications]);
+
+  const markOneRead = useCallback(async (notificationId: number) => {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('notification_id', notificationId)
+      .is('read_at', null);
+    if (!error) {
+      setNotifications(prev => prev.map(n => n.notification_id === notificationId ? { ...n, read_at: new Date().toISOString() } : n));
+    }
+  }, []);
+
+  const syncAdminDonationLogs = useCallback(async () => {
+    if (!supabase || role !== 'admin') return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const baseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '');
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (!token || !baseUrl || !anonKey) return;
+    await fetch(`${baseUrl}/functions/v1/admin-site-users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: anonKey,
+        Authorization: `Bearer ${token}`,
+        'X-Supabase-Access-Token': token,
+      },
+      body: JSON.stringify({ action: 'sync_donation_logs' }),
+    });
+  }, [role]);
+
+  useEffect(() => {
+    void refreshNotifications();
+  }, [refreshNotifications]);
+
+  useEffect(() => {
+    if (role === 'admin') void syncAdminDonationLogs().then(() => refreshNotifications());
+  }, [role, syncAdminDonationLogs, refreshNotifications]);
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
     <div className="flex h-full flex-col">
@@ -150,12 +225,17 @@ export function AdminLayout() {
             onClick={openProfileEditor}
             className="mb-2 w-full px-2 py-1.5 rounded-lg bg-[var(--wt-surface)] border border-[var(--wt-border)] text-left hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_16%,transparent)] transition-colors"
           >
-            <p className="text-xs font-medium text-[var(--wt-text)] truncate">
-              {user?.email}
-            </p>
-            <p className="text-[10px] uppercase tracking-widest text-[var(--wt-accent)] font-medium">
-              {role}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-[var(--wt-text)] truncate">
+                  {user?.email}
+                </p>
+                <p className="text-[10px] uppercase tracking-widest text-[var(--wt-accent)] font-medium">
+                  {role}
+                </p>
+              </div>
+              <Cog size={14} className="text-[var(--wt-text-2)] shrink-0" />
+            </div>
           </button>
         )}
         <button
@@ -234,10 +314,45 @@ export function AdminLayout() {
           <button
             className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors relative"
             aria-label="Notifications"
+            onClick={() => {
+              setNotificationsOpen(v => !v);
+              void refreshNotifications();
+            }}
           >
             <Bell size={18} />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[var(--wt-accent)]" />
+            {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[var(--wt-accent)]" />}
           </button>
+          {notificationsOpen && (
+            <div className="absolute right-16 top-12 z-40 w-80 rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl overflow-hidden">
+              <div className="px-3 py-2 border-b border-[var(--wt-border)] flex items-center justify-between">
+                <span className="text-xs uppercase tracking-widest text-[var(--wt-text-2)]">Notifications</span>
+                <button type="button" onClick={() => void markAllRead()} className="text-[10px] text-[var(--wt-accent)] uppercase tracking-widest">
+                  Mark all read
+                </button>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notificationsLoading ? (
+                  <p className="px-3 py-4 text-sm text-[var(--wt-text-2)]">Loading…</p>
+                ) : notificationsError ? (
+                  <p className="px-3 py-4 text-sm text-[#dc2626]">{notificationsError}</p>
+                ) : notifications.length === 0 ? (
+                  <p className="px-3 py-4 text-sm text-[var(--wt-text-2)]">No notifications yet.</p>
+                ) : (
+                  notifications.map(n => (
+                    <button
+                      key={n.notification_id}
+                      type="button"
+                      onClick={() => void markOneRead(n.notification_id)}
+                      className={`w-full text-left px-3 py-3 border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_10%,transparent)] ${n.read_at ? 'opacity-80' : ''}`}
+                    >
+                      <p className="text-sm text-[var(--wt-text)] font-medium">{n.title}</p>
+                      <p className="text-xs text-[var(--wt-text-2)] mt-0.5">{n.body ?? '—'}</p>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
 
           <Link
             to="/"

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
 const COOKIE_KEY = 'watchtower_theme'
-const CONSENT_KEY = 'watchtower_cookie_consent'
 type Theme = 'light' | 'dark'
 
 function readCookie(key: string): string | null {
@@ -11,17 +10,12 @@ function readCookie(key: string): string | null {
   return match ? match.split('=')[1] : null
 }
 
-function hasConsent(): boolean {
-  return readCookie(CONSENT_KEY) === 'accepted'
-}
-
 function readTheme(): Theme | null {
   const val = readCookie(COOKIE_KEY)
   return val === 'dark' ? 'dark' : val === 'light' ? 'light' : null
 }
 
 function writeCookie(theme: Theme) {
-  if (!hasConsent()) return
   const expires = new Date()
   expires.setFullYear(expires.getFullYear() + 1)
   document.cookie = `${COOKIE_KEY}=${theme}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`
