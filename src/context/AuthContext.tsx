@@ -57,7 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [roleIds, setRoleIds] = useState<number[]>([]);
-  const [rolesLoading, setRolesLoading] = useState(false);
+  /** `user.id` only after `user_roles` has been fetched for that user (success or error). */
+  const [rolesFetchedForUserId, setRolesFetchedForUserId] = useState<string | null>(null);
   const [rolesError, setRolesError] = useState<string | null>(null);
   const [rolesTick, setRolesTick] = useState(0);
   const [aal, setAal] = useState<AssuranceLevel>(null);
@@ -101,19 +102,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase || !session?.user?.id) {
       setRoleIds([]);
-      setRolesLoading(false);
+      setRolesFetchedForUserId(null);
       setRolesError(null);
       return;
     }
 
+    const uid = session.user.id;
     let cancelled = false;
-    setRolesLoading(true);
     setRolesError(null);
 
     supabase
       .from("user_roles")
       .select("role_id")
-      .eq("user_id", session.user.id)
+      .eq("user_id", uid)
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
@@ -128,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             );
           setRoleIds(ids);
         }
-        setRolesLoading(false);
+        setRolesFetchedForUserId(uid);
       });
 
     return () => {
@@ -180,6 +181,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(() => {
     const user = session?.user ?? null;
+    /** True until the first `user_roles` response for this session user (avoids access checks with stale []). */
+    const rolesLoading = Boolean(
+      isSupabaseConfigured && user?.id && rolesFetchedForUserId !== user.id,
+    );
     /** Until `user_roles` returns, do not assume MEMBER — avoids flashing wrong nav. */
     const effectiveRoleIds =
       user && isSupabaseConfigured && rolesLoading
@@ -255,7 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     loading,
     roleIds,
-    rolesLoading,
+    rolesFetchedForUserId,
     rolesError,
     aal,
     hasMfaFactor,
