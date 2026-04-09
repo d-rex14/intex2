@@ -1,6 +1,8 @@
+import { ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
+import { bandNeutralCls, bandPositiveCls, bandWarningCls } from '../../lib/mlBandStyles'
 import { isStaffLike } from '../../lib/roles'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
@@ -26,26 +28,134 @@ type BandType = 'reintegration' | 'risk' | 'wellbeing'
 function RiskChip({ band, type }: { band: string | null; type: BandType }) {
   if (!band) return <span className="text-[var(--wt-text-2)] text-xs">—</span>
   const readiness: Record<string, string> = {
-    Ready: 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-accent)] border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]',
-    Approaching: 'bg-[color-mix(in_srgb,var(--wt-text-2)_14%,transparent)] text-[var(--wt-text-2)] border-[color-mix(in_srgb,var(--wt-text-2)_25%,transparent)]',
-    'Not Ready': 'bg-[color-mix(in_srgb,#dc2626_14%,transparent)] text-[#dc2626] border-[color-mix(in_srgb,#dc2626_30%,transparent)]',
+    Ready: bandPositiveCls,
+    Approaching: bandNeutralCls,
+    'Not Ready': bandWarningCls,
   }
   const riskHigh: Record<string, string> = {
-    High: 'bg-[color-mix(in_srgb,#dc2626_14%,transparent)] text-[#dc2626] border-[color-mix(in_srgb,#dc2626_30%,transparent)]',
-    Medium: 'bg-[color-mix(in_srgb,var(--wt-text-2)_14%,transparent)] text-[var(--wt-text-2)] border-[color-mix(in_srgb,var(--wt-text-2)_25%,transparent)]',
-    Low: 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-accent)] border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]',
+    High: bandWarningCls,
+    Medium: bandNeutralCls,
+    Low: bandPositiveCls,
   }
   const wellbeing: Record<string, string> = {
-    High: 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-accent)] border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]',
-    Medium: 'bg-[color-mix(in_srgb,var(--wt-text-2)_14%,transparent)] text-[var(--wt-text-2)] border-[color-mix(in_srgb,var(--wt-text-2)_25%,transparent)]',
-    Low: 'bg-[color-mix(in_srgb,#dc2626_14%,transparent)] text-[#dc2626] border-[color-mix(in_srgb,#dc2626_30%,transparent)]',
+    High: bandPositiveCls,
+    Medium: bandNeutralCls,
+    Low: bandWarningCls,
   }
   const map = type === 'reintegration' ? readiness : type === 'wellbeing' ? wellbeing : riskHigh
-  const cls = map[band] ?? 'bg-[var(--wt-border)] text-[var(--wt-text-2)] border-[var(--wt-border)]'
+  const cls = map[band] ?? bandNeutralCls
   return (
     <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${cls}`}>
       {band}
     </span>
+  )
+}
+
+function CaseloadMLMetricsGuide() {
+  const [open, setOpen] = useState(true)
+  return (
+    <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)] transition-colors"
+      >
+        <ChevronDown
+          className={`h-5 w-5 shrink-0 text-[var(--wt-text-2)] transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-[var(--wt-text)]">Understanding the insight columns</div>
+          <div className="text-xs text-[var(--wt-text-2)] mt-0.5">
+            Plain-language guide to the four model-supported columns and the color key (click to show or hide)
+          </div>
+        </div>
+      </button>
+      {open ? (
+        <div className="border-t border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-4 space-y-5 text-sm text-[var(--wt-text)]">
+          <p className="text-xs text-[var(--wt-text-2)] leading-relaxed">
+            These badges are produced offline from your program data, then stored for the portal. They support supervision and
+            case review—they are <strong className="text-[var(--wt-text)]">not diagnoses</strong> and should always be read
+            together with your own judgment and current notes.
+          </p>
+          <p className="text-xs text-[var(--wt-text-2)] leading-relaxed">
+            Badges appear for <strong className="text-[var(--wt-text)]">Active</strong> and{' '}
+            <strong className="text-[var(--wt-text)]">On hold</strong> cases only.{' '}
+            <strong className="text-[var(--wt-text)]">Closed</strong> and <strong className="text-[var(--wt-text)]">Transferred</strong>{' '}
+            rows show a dash in those columns because the resident is no longer in active in-program care.
+          </p>
+
+          <div className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] p-3 space-y-2">
+            <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Color key (all four columns)</div>
+            <ul className="text-xs text-[var(--wt-text-2)] space-y-1.5 list-disc pl-4">
+              <li>
+                <span className="text-[var(--wt-text)]">Green</span> — favorable for that topic (for example, low school
+                concern or low incident concern; for wellbeing, a stronger wellbeing signal).
+              </li>
+              <li>
+                <span className="text-[var(--wt-text)]">Gray</span> — in the middle; routine monitoring is usually enough
+                unless other concerns appear in the file.
+              </li>
+              <li>
+                <span className="text-[var(--wt-text)]">Red</span> — deserves attention in that area (follow-up, staffing
+                discussion, or closer monitoring—not an automatic action by itself).
+              </li>
+            </ul>
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] p-3">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1.5">Reintegration</div>
+              <p className="text-xs text-[var(--wt-text-2)] leading-relaxed">
+                <strong className="text-[var(--wt-text)]">Ready</strong>, <strong className="text-[var(--wt-text)]">Approaching</strong>, or{' '}
+                <strong className="text-[var(--wt-text)]">Not ready</strong> summarizes how closely this resident&apos;s recorded case
+                trajectory resembles patterns that historically aligned with successful reintegration planning. It draws on
+                reintegration status and related case fields—not a legal determination of readiness. Use it to prompt
+                conversation with the social worker and to prioritize supervision time.
+              </p>
+            </div>
+            <div className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] p-3">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1.5">School risk</div>
+              <p className="text-xs text-[var(--wt-text-2)] leading-relaxed">
+                <strong className="text-[var(--wt-text)]">High</strong>, <strong className="text-[var(--wt-text)]">Medium</strong>, or{' '}
+                <strong className="text-[var(--wt-text)]">Low</strong> reflects how much the education records for this resident look
+                like profiles that needed extra academic or attendance support (for example, weaker attendance or progress
+                signals in the data). It is <strong className="text-[var(--wt-text)]">not a report card</strong>—only a triage hint
+                for staff.
+              </p>
+            </div>
+            <div className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] p-3">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1.5">Wellbeing</div>
+              <p className="text-xs text-[var(--wt-text-2)] leading-relaxed">
+                <strong className="text-[var(--wt-text)]">High</strong>, <strong className="text-[var(--wt-text)]">Medium</strong>, or{' '}
+                <strong className="text-[var(--wt-text)]">Low</strong> is a summary of predicted overall wellbeing based on health and
+                wellbeing-related records. Here, <strong className="text-[var(--wt-text)]">High is the positive band</strong> (stronger
+                predicted wellbeing). Bands are assigned relative to the full resident list when scores are last refreshed, so
+                they describe position within the cohort, not an absolute clinical score on the screen.
+              </p>
+            </div>
+            <div className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] p-3">
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-1.5">Incident risk</div>
+              <p className="text-xs text-[var(--wt-text-2)] leading-relaxed">
+                <strong className="text-[var(--wt-text)]">High</strong>, <strong className="text-[var(--wt-text)]">Medium</strong>, or{' '}
+                <strong className="text-[var(--wt-text)]">Low</strong> indicates how strongly past incident and safety-related history
+                resembles patterns that were associated with more follow-on incidents in the training data.{' '}
+                <strong className="text-[var(--wt-text)]">High</strong> means &quot;review with care&quot;;{' '}
+                <strong className="text-[var(--wt-text)]">Low</strong> means fewer historical warning signals in the dataset—not a
+                guarantee of safety.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-[var(--wt-text-2)] leading-relaxed border-t border-[var(--wt-border)] pt-3">
+            Scores are versioned and dated in the resident detail view. When your team re-runs the analytics notebooks and
+            exports to the database, every resident row updates together. If a badge is missing, scores may not have been loaded
+            yet for that resident.
+          </p>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -122,6 +232,26 @@ const selectClass =
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 const CASE_STATUS_OPTIONS = ['Active', 'On Hold', 'Closed', 'Transferred'] as const
+
+/** Table sort: Active caseload first, then other open statuses, then closed pipeline. */
+const CASE_STATUS_SORT_RANK: Record<string, number> = {
+  Active: 0,
+  'On Hold': 1,
+  Closed: 2,
+  Transferred: 3,
+}
+
+function caseStatusSortRank(status: string | null | undefined): number {
+  if (status != null && Object.prototype.hasOwnProperty.call(CASE_STATUS_SORT_RANK, status)) {
+    return CASE_STATUS_SORT_RANK[status]
+  }
+  return 50
+}
+
+/** ML insight badges apply to in-program cases only (not closed or transferred-out). */
+function showMlForStatus(status: string | null | undefined): boolean {
+  return status === 'Active' || status === 'On Hold'
+}
 const CASE_CATEGORY_OPTIONS = ['Neglected', 'Surrendered', 'Trafficked', 'Physical Abuse', 'Sexual Abuse', 'At Risk'] as const
 const SEX_OPTIONS = ['F', 'M'] as const
 const REFERRAL_SOURCE_OPTIONS = ['NGO', 'Government Agency', 'Court Order', 'Self-Referral', 'Partner Referral', 'School', 'Community', 'Other'] as const
@@ -288,7 +418,7 @@ function ResidentDetailModal({
             <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Sub-categories</div>
             {tags.length === 0 ? <p>—</p> : <p>{tags.join(', ')}</p>}
           </div>
-          {mlScore ? (
+          {mlScore && showMlForStatus(resident.case_status) ? (
             <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4 md:col-span-2">
               <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-3">Model Insights</div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
@@ -330,7 +460,7 @@ function ResidentDetailModal({
 export function CaseloadPage() {
   const { effectiveRoleIds } = useAuth()
   const staff = isStaffLike(effectiveRoleIds)
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('Active')
   const [safehouseFilter, setSafehouseFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [search, setSearch] = useState('')
@@ -400,11 +530,22 @@ export function CaseloadPage() {
     })
   }, [residents, statusFilter, safehouseFilter, categoryFilter, search, safehouseNameById])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const filteredSorted = useMemo(() => {
+    const arr = [...filtered]
+    arr.sort((a, b) => {
+      const ra = caseStatusSortRank(a.case_status)
+      const rb = caseStatusSortRank(b.case_status)
+      if (ra !== rb) return ra - rb
+      return a.resident_id - b.resident_id
+    })
+    return arr
+  }, [filtered])
+
+  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / pageSize))
   const pagedRows = useMemo(() => {
     const start = (page - 1) * pageSize
-    return filtered.slice(start, start + pageSize)
-  }, [filtered, page, pageSize])
+    return filteredSorted.slice(start, start + pageSize)
+  }, [filteredSorted, page, pageSize])
 
   const selectedResident = useMemo(() => (residents ?? []).find(r => r.resident_id === selectedId), [residents, selectedId])
 
@@ -562,6 +703,9 @@ export function CaseloadPage() {
           </select>
         </label>
       </div>
+
+      {staff ? <CaseloadMLMetricsGuide /> : null}
+
       {formError && (
         <p className="text-sm text-[#dc2626]">{formError}</p>
       )}
@@ -593,6 +737,9 @@ export function CaseloadPage() {
               <tbody>
                 {pagedRows.map(r => {
                   const ml = mlByResident.get(r.resident_id)
+                  const showMl = showMlForStatus(r.case_status)
+                  const mlCell = (band: string | null | undefined, type: BandType) =>
+                    showMl ? <RiskChip band={band ?? null} type={type} /> : <span className="text-[var(--wt-text-2)] text-xs">—</span>
                   return (
                     <tr key={r.resident_id} className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]">
                       <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">
@@ -602,10 +749,10 @@ export function CaseloadPage() {
                       <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{safehouseNameById.get(r.safehouse_id ?? -1) ?? '—'}</td>
                       <td className="px-4 py-3 text-[var(--wt-text)]">{r.assigned_social_worker ?? '—'}</td>
                       <td className="px-4 py-3 text-[var(--wt-text)]">{r.case_status ?? '—'}</td>
-                      {staff && <td className="px-4 py-3"><RiskChip band={ml?.reintegration_band ?? null} type="reintegration" /></td>}
-                      {staff && <td className="px-4 py-3"><RiskChip band={ml?.school_struggle_band ?? null} type="risk" /></td>}
-                      {staff && <td className="px-4 py-3"><RiskChip band={ml?.wellbeing_band ?? null} type="wellbeing" /></td>}
-                      {staff && <td className="px-4 py-3"><RiskChip band={ml?.incident_risk_band ?? null} type="risk" /></td>}
+                      {staff && <td className="px-4 py-3">{mlCell(ml?.reintegration_band, 'reintegration')}</td>}
+                      {staff && <td className="px-4 py-3">{mlCell(ml?.school_struggle_band, 'risk')}</td>}
+                      {staff && <td className="px-4 py-3">{mlCell(ml?.wellbeing_band, 'wellbeing')}</td>}
+                      {staff && <td className="px-4 py-3">{mlCell(ml?.incident_risk_band, 'risk')}</td>}
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex justify-end gap-2">
                           <button type="button" onClick={() => setSelectedId(r.resident_id)} className="rounded-lg border border-[var(--wt-border)] px-3 py-1.5 text-xs text-[var(--wt-text)]">Details</button>
@@ -625,7 +772,7 @@ export function CaseloadPage() {
         )}
       </div>
 
-      {!loading && !error && filtered.length > 0 && (
+      {!loading && !error && filteredSorted.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-[var(--wt-text)]">
           <p className="text-[var(--wt-text-2)] tabular-nums">Page {page} of {totalPages}</p>
           <div className="flex items-center gap-2">

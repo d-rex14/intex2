@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
 import { campaignOptionsForSelect } from '../../lib/fundraisingCampaigns'
+import { bandNeutralCls, bandPositiveCls, bandWarningCls } from '../../lib/mlBandStyles'
 import { BASE_CURRENCY, convertCurrency, FX_TO_PHP, SUPPORTED_CURRENCIES, toPHP } from '../../lib/fxRates'
 import { isStaffLike } from '../../lib/roles'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
@@ -34,25 +35,46 @@ async function fetchUpgradeScores(): Promise<{ data: UpgradeScore[] | null; erro
   return { data: (data ?? []) as UpgradeScore[], error: null }
 }
 
+type ChurnScoreRow = {
+  supporter_id: number
+  churn_prob?: number | null
+  churn_risk_score?: number | null
+  churn_risk_band?: string | null
+  risk_tier?: string | null
+  model_version?: string | null
+  scored_at?: string | null
+}
+
+function normalizeChurnScore(r: ChurnScoreRow): ChurnScore {
+  const prob = r.churn_prob ?? r.churn_risk_score ?? null
+  const rawBand = r.churn_risk_band ?? r.risk_tier ?? 'Low'
+  const churn_risk_band = (rawBand === 'High' || rawBand === 'Medium' || rawBand === 'Low'
+    ? rawBand
+    : 'Low') satisfies ChurnScore['churn_risk_band']
+  return {
+    supporter_id: r.supporter_id,
+    churn_prob: prob,
+    churn_risk_band,
+    model_version: r.model_version ?? 'v1',
+    scored_at: r.scored_at ?? '',
+  }
+}
+
 async function fetchChurnScores(): Promise<{ data: ChurnScore[] | null; error: { message: string } | null }> {
   if (!supabase) return { data: null, error: { message: 'Supabase is not configured.' } }
-  const { data, error } = await supabase
-    .from('donor_churn_scores')
-    .select('supporter_id, churn_prob, churn_risk_band, model_version, scored_at')
+  const { data, error } = await supabase.from('donor_churn_scores').select('*')
   if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as ChurnScore[], error: null }
+  const rows = (data ?? []) as ChurnScoreRow[]
+  return { data: rows.map(normalizeChurnScore), error: null }
 }
 
 function BandPill({ band, type }: { band: string; type: 'upgrade' | 'churn' }) {
-  const colors: Record<string, string> = {
-    High: type === 'upgrade'
-      ? 'bg-[color-mix(in_srgb,var(--wt-accent)_18%,transparent)] text-[var(--wt-accent)] border-[color-mix(in_srgb,var(--wt-accent)_35%,transparent)]'
-      : 'bg-[color-mix(in_srgb,#dc2626_14%,transparent)] text-[#dc2626] border-[color-mix(in_srgb,#dc2626_30%,transparent)]',
-    Medium: 'bg-[color-mix(in_srgb,var(--wt-text-2)_14%,transparent)] text-[var(--wt-text-2)] border-[color-mix(in_srgb,var(--wt-text-2)_25%,transparent)]',
-    Low: 'bg-[color-mix(in_srgb,var(--wt-border)_40%,transparent)] text-[var(--wt-text-2)] border-[var(--wt-border)]',
-  }
+  const colors: Record<string, string> =
+    type === 'upgrade'
+      ? { High: bandPositiveCls, Medium: bandNeutralCls, Low: bandNeutralCls }
+      : { High: bandWarningCls, Medium: bandNeutralCls, Low: bandPositiveCls }
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${colors[band] ?? colors.Low}`}>
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${colors[band] ?? bandNeutralCls}`}>
       {band}
     </span>
   )
@@ -630,7 +652,12 @@ export function DonorsContributionsPage() {
         latestBySupporter.set(r.supporter_id, r)
       }
     }
-    return scores.slice(0, 10).map(s => ({
+    const sorted = [...scores].sort((a, b) => {
+      const ds = (b.score ?? 0) - (a.score ?? 0)
+      if (ds !== 0) return ds
+      return a.supporter_id - b.supporter_id
+    })
+    return sorted.slice(0, 10).map(s => ({
       ...s,
       donor: (() => {
         const row = latestBySupporter.get(s.supporter_id)
@@ -1006,7 +1033,6 @@ export function DonorsContributionsPage() {
                     <th className="px-4 py-3 font-medium">Rank</th>
                     <th className="px-4 py-3 font-medium">Donor</th>
                     <th className="px-4 py-3 font-medium text-right">Score</th>
-                    <th className="px-4 py-3 font-medium">Band</th>
                     <th className="px-4 py-3 font-medium">Last Gift</th>
                     <th className="px-4 py-3 font-medium min-w-[12rem]">Recommended Action</th>
                   </tr>
@@ -1021,9 +1047,6 @@ export function DonorsContributionsPage() {
                       <td className="px-4 py-3 text-[var(--wt-text)] font-medium">{c.donor}</td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         <span className="text-[var(--wt-accent)] font-semibold">{(c.score * 100).toFixed(1)}%</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <BandPill band={c.band} type="upgrade" />
                       </td>
                       <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{c.lastGift ?? '—'}</td>
                       <td className="px-4 py-3 text-[var(--wt-text-2)] text-xs">{c.recommended_action ?? '—'}</td>
