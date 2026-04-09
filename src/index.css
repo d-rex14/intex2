@@ -25,6 +25,16 @@
   color-scheme: light;
 }
 
+html.dark {
+  --wt-cream: #0a0e1a;
+  --wt-cream-2: #0f1729;
+  --wt-text: #e2e8f0;
+  --wt-text-2: #94a3b8;
+  --wt-border: #1e293b;
+
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
