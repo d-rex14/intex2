@@ -18,11 +18,9 @@ export function PublicLayout() {
       { to: '/blog', label: 'Blog' },
       { to: '/about', label: 'About' },
       { to: '/contact', label: 'Contact' },
-      { to: '/social', label: 'Social' },
       { to: '/donations', label: 'Donations' },
     ]
-    if (!session) return publicLinks
-    return [...publicLinks, { to: '/portal', label: 'My Portal' }]
+    return publicLinks
   }, [session])
 
   const isActive = (to: string) => (to === '/' ? location.pathname === '/' : location.pathname.startsWith(to))
@@ -72,12 +70,20 @@ export function PublicLayout() {
                 {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
               </button>
               {session ? (
-                <button
-                  onClick={handleSignOut}
-                  className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-                >
-                  Log Out
-                </button>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/portal"
+                    className="rounded-lg border border-[var(--wt-accent)] bg-[color-mix(in_srgb,var(--wt-accent)_14%,transparent)] px-4 py-2 text-sm font-semibold text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent)_24%,transparent)] transition-colors"
+                  >
+                    My Portal
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
+                  >
+                    Log Out
+                  </button>
+                </div>
               ) : (
                 <Link
                   to="/login"
@@ -114,12 +120,21 @@ export function PublicLayout() {
             ))}
             <div className="pt-2 border-t border-[var(--wt-border)]">
               {session ? (
-                <button
-                  onClick={handleSignOut}
-                  className="block w-full text-center rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-                >
-                  Log Out
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    to="/portal"
+                    onClick={() => setMenuOpen(false)}
+                    className="block w-full text-center rounded-lg border border-[var(--wt-accent)] bg-[color-mix(in_srgb,var(--wt-accent)_14%,transparent)] px-4 py-2 text-sm font-semibold text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent)_24%,transparent)] transition-colors"
+                  >
+                    My Portal
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="block w-full text-center rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
+                  >
+                    Log Out
+                  </button>
+                </div>
               ) : (
                 <Link
                   to="/login"

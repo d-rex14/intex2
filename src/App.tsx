@@ -23,7 +23,6 @@ import {
   SocialNeedsPage,
   SpiritualNeedsPage,
 } from './pages/public/ProgramPages'
-import { SocialPage } from './pages/public/SocialPage'
 import { CaseloadPage } from './pages/portal/CaseloadPage'
 import { DashboardPage } from './pages/portal/DashboardPage'
 import { DonorsContributionsPage } from './pages/portal/DonorsContributionsPage'
@@ -511,7 +510,6 @@ export function App() {
           <Route path="about" element={<AboutPage />} />
           <Route path="board/:slug" element={<BoardMemberPage />} />
           <Route path="contact" element={<ContactPage />} />
-          <Route path="social" element={<SocialPage />} />
           <Route path="donations" element={<DonationsPage />} />
           <Route path="safety" element={<SafetyPage />} />
           <Route path="healing" element={<HealingPage />} />
