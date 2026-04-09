@@ -28,13 +28,12 @@ async function fetchAllocations(): Promise<{
 
 function AllocationDonutChart({
   title,
-  centerLabel,
-  centerSubtext,
+  centerTitle,
   data,
 }: {
   title: string
-  centerLabel: string
-  centerSubtext: string
+  /** Single label in the donut hole (e.g. "Fund Distribution"). */
+  centerTitle: string
   data: { label: string; value: number; color: string }[]
 }) {
   const total = data.reduce((sum, d) => sum + d.value, 0)
@@ -108,21 +107,13 @@ function AllocationDonutChart({
         </g>
         <text
           x={size / 2}
-          y={size / 2 - 4}
+          y={size / 2}
           textAnchor="middle"
+          dominantBaseline="middle"
           className="fill-[var(--wt-text)]"
-          style={{ fontSize: 16, fontWeight: 750 }}
+          style={{ fontSize: 14, fontWeight: 750 }}
         >
-          {centerLabel || '—'}
-        </text>
-        <text
-          x={size / 2}
-          y={size / 2 + 18}
-          textAnchor="middle"
-          className="fill-[var(--wt-text-2)]"
-          style={{ fontSize: 10, letterSpacing: '0.18em' }}
-        >
-          {centerSubtext}
+          {centerTitle.trim() || '—'}
         </text>
       </svg>
 
@@ -209,10 +200,10 @@ export function DonationsPage() {
         <h2 className="font-display text-xl font-bold text-[var(--wt-text)]">Where your support goes</h2>
         <p className="mt-3 text-sm text-[var(--wt-text-2)] leading-relaxed max-w-3xl">
           The chart shows the percentage share of recorded allocations by program area (internal records in {BASE_CURRENCY}).
-          Hover a segment to see its share of the total. This view is for transparency only and does not display dollar
+          Hover a ring segment to see its share of the total. This view is for transparency only and does not display dollar
           amounts. If no data appears yet, our team may still be updating allocation records.
         </p>
-        <div className="mt-8 flex justify-center">
+        <div className="mt-8">
           {!isSupabaseConfigured ? (
             <p className="text-sm text-[var(--wt-text-2)]">Connect Supabase to load allocation data.</p>
           ) : allocationsLoading ? (
@@ -228,12 +219,39 @@ export function DonationsPage() {
               reflect how funds are distributed across program areas.
             </p>
           ) : (
-            <AllocationDonutChart
-              title="Donation allocation by program area"
-              centerLabel={allocatedTotal > 0 ? '100%' : '—'}
-              centerSubtext="FULL DISTRIBUTION"
-              data={resourcesFunded}
-            />
+            <div className="flex flex-col items-center gap-8 lg:flex-row lg:items-start lg:justify-center">
+              <AllocationDonutChart
+                title="Donation allocation by program area"
+                centerTitle="Fund Distribution"
+                data={resourcesFunded}
+              />
+              <div className="w-full max-w-sm rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] p-4">
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[var(--wt-text-2)]">
+                  Chart key
+                </h3>
+                <p className="mt-2 text-xs text-[var(--wt-text-2)] leading-relaxed">
+                  Each color is a <span className="text-[var(--wt-text)]">program area</span> (for example shelter care,
+                  education, or outreach). Percentages are shares of the total allocations shown in this chart—not your
+                  personal donation breakdown.
+                </p>
+                <ul className="mt-4 space-y-2.5" aria-label="Program area legend">
+                  {resourcesFunded.map((item) => {
+                    const pct = allocatedTotal > 0 ? (item.value / allocatedTotal) * 100 : 0
+                    return (
+                      <li key={item.label} className="flex items-center gap-3 text-sm">
+                        <span
+                          className="h-3 w-3 shrink-0 rounded-sm border border-[color-mix(in_srgb,var(--wt-border)_70%,transparent)]"
+                          style={{ backgroundColor: item.color }}
+                          aria-hidden
+                        />
+                        <span className="min-w-0 flex-1 font-medium text-[var(--wt-text)]">{item.label}</span>
+                        <span className="shrink-0 tabular-nums text-[var(--wt-text-2)]">{pct.toFixed(1)}%</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </div>
           )}
         </div>
       </section>

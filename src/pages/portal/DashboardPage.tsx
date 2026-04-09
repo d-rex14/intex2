@@ -1,17 +1,16 @@
-import { Link } from 'react-router-dom'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import {
   AlertTriangle,
   BarChart3,
   CalendarClock,
   FileText,
   HeartHandshake,
-  Home,
   Shield,
   Users,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
+import { PORTAL_DASHBOARD_INVALIDATE } from '../../lib/portalDataEvents'
 import { isStaffLike, ROLE_IDS } from '../../lib/roles'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
@@ -209,6 +208,12 @@ export function DashboardPage() {
 
   const queryFn = useMemo(() => () => fetchDashboardData(), [])
   const { data, loading, error, refetch } = useSupabaseQuery<DashboardData>(queryFn)
+
+  useEffect(() => {
+    const onInvalidate = () => refetch()
+    window.addEventListener(PORTAL_DASHBOARD_INVALIDATE, onInvalidate)
+    return () => window.removeEventListener(PORTAL_DASHBOARD_INVALIDATE, onInvalidate)
+  }, [refetch])
 
   if (!isSupabaseConfigured) {
     return (

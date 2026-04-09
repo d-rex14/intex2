@@ -1,6 +1,7 @@
 import { type ReactNode, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
+import { invalidatePortalDashboard } from '../../lib/portalDataEvents'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
 type SocialMediaPost = {
@@ -257,7 +258,8 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 export function SocialMediaPage() {
-  const { data: posts, loading, error, refetch } = useSupabaseQuery<SocialMediaPost>(fetchPosts)
+  const postsQuery = useMemo(() => () => fetchPosts(), [])
+  const { data: posts, loading, error, refetch } = useSupabaseQuery<SocialMediaPost[]>(postsQuery)
 
   const [platformFilter, setPlatformFilter] = useState('all')
   const [postTypeFilter, setPostTypeFilter] = useState('all')
@@ -328,7 +330,11 @@ export function SocialMediaPage() {
     if (!supabase) return
     setSaving(true)
     setFormError(null)
-    const payload = draftToPayload(draft)
+    const basePayload = draftToPayload(draft)
+    const payload =
+      editingId == null && !(draft.created_at ?? '').trim()
+        ? { ...basePayload, created_at: new Date().toISOString() }
+        : basePayload
     let dbError: string | null = null
     if (editingId == null) {
       const { error } = await supabase.from('social_media_posts').insert(payload)
@@ -343,6 +349,7 @@ export function SocialMediaPage() {
     } else {
       closeModal()
       refetch()
+      invalidatePortalDashboard()
     }
   }
 
@@ -352,7 +359,10 @@ export function SocialMediaPage() {
     if (!ok) return
     const { error } = await supabase.from('social_media_posts').delete().eq('post_id', postId)
     if (error) setFormError(error.message)
-    else refetch()
+    else {
+      refetch()
+      invalidatePortalDashboard()
+    }
   }
 
   if (!isSupabaseConfigured) {
