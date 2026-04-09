@@ -1,7 +1,17 @@
 import { useCallback, useMemo, useState } from 'react'
+import { Download, FileSpreadsheet, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { ORG } from '../../content/org'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
+import {
+  buildDonationInvoiceHtml,
+  buildYtdReportCsv,
+  buildYtdReportHtml,
+  downloadTextFile,
+  type InvoiceDonationInput,
+  type YtdRowInput,
+} from '../../lib/donorGivingDocuments'
 import { BASE_CURRENCY, convertCurrency, SUPPORTED_CURRENCIES } from '../../lib/fxRates'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
@@ -60,6 +70,16 @@ function bestEffortDisplayName(email: string | null | undefined): string {
   const local = e.split('@')[0] ?? ''
   const cleaned = local.replace(/[._-]+/g, ' ').trim()
   return cleaned ? cleaned.replace(/\b\w/g, c => c.toUpperCase()) : 'there'
+}
+
+function donationCalendarYear(dateStr: string | null | undefined): number | null {
+  const y = (dateStr ?? '').toString().slice(0, 4)
+  const n = Number(y)
+  return Number.isFinite(n) && n >= 1900 && n <= 2100 ? n : null
+}
+
+function isDonationInYear(dateStr: string | null | undefined, year: number): boolean {
+  return donationCalendarYear(dateStr) === year
 }
 
 function formatAmount(row: MyDonation, displayCurrency: string): string {
@@ -204,9 +224,26 @@ function DonutChart({
   )
 }
 
+function myDonationToInvoiceInput(row: MyDonation): InvoiceDonationInput {
+  return {
+    donationId: row.donation_id,
+    donationDate: row.donation_date,
+    donationType: row.donation_type,
+    currencyCode: row.currency_code,
+    amount: row.amount,
+    estimatedValue: row.estimated_value,
+    impactUnit: row.impact_unit,
+    channelSource: row.channel_source,
+    campaignName: row.campaign_name,
+    isRecurring: row.is_recurring,
+    notes: row.notes,
+  }
+}
+
 export function YourDonationsPage() {
   const { user } = useAuth()
   const [currency, setCurrency] = useState<string>(BASE_CURRENCY)
+  const [selectedDonation, setSelectedDonation] = useState<MyDonation | null>(null)
 
   const queryFn = useCallback(async (): Promise<{
     data: MyDonation[] | null
@@ -327,6 +364,90 @@ export function YourDonationsPage() {
     }))
   }, [allocationRatios, lifetimeTotal.sum])
 
+  const reportYear = new Date().getFullYear()
+
+  const ytdDonations = useMemo(
+    () => donations.filter(d => isDonationInYear(d.donation_date, reportYear)),
+    [donations, reportYear],
+  )
+
+  const ytdMonetary = useMemo(() => {
+    let sum = 0
+    let excluded = 0
+    for (const d of ytdDonations) {
+      if (d.donation_type !== 'Monetary') continue
+      const val = d.amount ?? d.estimated_value
+      if (val == null) continue
+      const fromCur = (d.currency_code ?? BASE_CURRENCY).trim() || BASE_CURRENCY
+      const fx = convertCurrency(Number(val), fromCur, currency)
+      if (fx.converted == null) {
+        excluded++
+        continue
+      }
+      sum += fx.converted
+    }
+    return { sum, excluded, count: ytdDonations.length }
+  }, [ytdDonations, currency])
+
+  const ytdReportRows: YtdRowInput[] = useMemo(
+    () =>
+      [...ytdDonations].sort((a, b) => {
+        const ta = parseISODateToUTC(a.donation_date) ?? 0
+        const tb = parseISODateToUTC(b.donation_date) ?? 0
+        return tb - ta
+      }).map(row => ({
+        donationId: row.donation_id,
+        donationDate: row.donation_date,
+        donationType: row.donation_type,
+        currencyCode: row.currency_code,
+        amountLabel: formatAmount(row, currency),
+        channelSource: row.channel_source,
+      })),
+    [ytdDonations, currency],
+  )
+
+  const downloadGiftReceipt = (row: MyDonation) => {
+    const html = buildDonationInvoiceHtml({
+      donation: myDonationToInvoiceInput(row),
+      donorDisplayName: displayName,
+      donorEmail: (user?.email ?? '').trim() || '—',
+      amountLabel: formatAmount(row, currency),
+      generatedAtIso: new Date().toLocaleString(),
+    })
+    downloadTextFile(`watchtower-gift-receipt-${row.donation_id}.html`, html)
+  }
+
+  const downloadYtdHtml = () => {
+    const summaryLines = [
+      `Gifts recorded in ${reportYear}: ${ytdMonetary.count}`,
+      `Monetary total (approx. ${currency}, where converted): ${formatMoney(currency, ytdMonetary.sum)}`,
+    ]
+    if (ytdMonetary.excluded > 0) {
+      summaryLines.push(
+        `${ytdMonetary.excluded} monetary gift(s) omitted from the total due to missing exchange rates — see table for original currencies.`,
+      )
+    }
+    const html = buildYtdReportHtml({
+      year: reportYear,
+      donorDisplayName: displayName,
+      donorEmail: (user?.email ?? '').trim() || '—',
+      rows: ytdReportRows,
+      summaryLines,
+      generatedAtIso: new Date().toLocaleString(),
+    })
+    downloadTextFile(`watchtower-giving-ytd-${reportYear}.html`, html)
+  }
+
+  const downloadYtdCsv = () => {
+    const csv = buildYtdReportCsv({
+      year: reportYear,
+      donorDisplayName: displayName,
+      donorEmail: (user?.email ?? '').trim() || '—',
+      rows: ytdReportRows,
+    })
+    downloadTextFile(`watchtower-giving-ytd-${reportYear}.csv`, csv, 'text/csv;charset=utf-8')
+  }
+
   const lastDonationDate = lastDonation?.donation_date ?? null
   const lastDonationAmount = lastDonation ? formatAmount(lastDonation, currency) : '—'
 
@@ -403,6 +524,58 @@ export function YourDonationsPage() {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Year-to-date giving ({reportYear})</h2>
+            <p className="text-sm text-[var(--wt-text-2)] mt-1 max-w-2xl leading-relaxed">
+              Summary of gifts recorded in your account for the calendar year. Download a report for your tax preparer or
+              records. This is not tax advice; keep official bank or processor statements as needed. Organization: Lighthouse
+              Sanctuary, EIN {ORG.ein}.
+            </p>
+            <dl className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-3">
+                <dt className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Gifts this year</dt>
+                <dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--wt-text)]">{ytdMonetary.count}</dd>
+              </div>
+              <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-3 sm:col-span-2">
+                <dt className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">
+                  Monetary total (≈ {currency})
+                </dt>
+                <dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--wt-text)]">
+                  {formatMoney(currency, ytdMonetary.sum)}
+                </dd>
+                {ytdMonetary.excluded > 0 && (
+                  <p className="text-xs text-[var(--wt-text-2)] mt-1">
+                    Some amounts excluded from this total (missing FX); full detail is in the downloads.
+                  </p>
+                )}
+              </div>
+            </dl>
+          </div>
+          <div className="flex flex-col gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => downloadYtdHtml()}
+              disabled={ytdDonations.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-2.5 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_14%,transparent)] disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            >
+              <Download className="h-4 w-4 shrink-0" aria-hidden />
+              Download YTD report (HTML)
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadYtdCsv()}
+              disabled={ytdDonations.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-4 py-2.5 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_14%,transparent)] disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            >
+              <FileSpreadsheet className="h-4 w-4 shrink-0" aria-hidden />
+              Download YTD (CSV)
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
           <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Donation Allocation</h2>
@@ -456,6 +629,7 @@ export function YourDonationsPage() {
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Date</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Amount</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Method</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Receipt</th>
                 </tr>
               </thead>
               <tbody>
@@ -469,6 +643,15 @@ export function YourDonationsPage() {
                     </td>
                     <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{formatAmount(row, currency)}</td>
                     <td className="px-4 py-3 text-[var(--wt-text-2)]">{row.channel_source ?? '—'}</td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDonation(row)}
+                        className="text-[var(--wt-accent)] text-xs font-semibold hover:underline"
+                      >
+                        View
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -477,6 +660,97 @@ export function YourDonationsPage() {
         )}
         </div>
       </div>
+
+      {selectedDonation && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          role="presentation"
+          onClick={() => setSelectedDonation(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl max-h-[90vh] overflow-y-auto overflow-x-hidden"
+            role="dialog"
+            aria-labelledby="donation-detail-title"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 p-5 border-b border-[var(--wt-border)]">
+              <div>
+                <h2 id="donation-detail-title" className="font-display text-lg font-bold text-[var(--wt-text)]">
+                  Gift #{selectedDonation.donation_id}
+                </h2>
+                <p className="text-xs text-[var(--wt-text-2)] mt-1">
+                  Acknowledgment you can save or print for charitable giving records.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDonation(null)}
+                className="rounded-lg border border-[var(--wt-border)] p-2 text-[var(--wt-text-2)] hover:text-[var(--wt-text)] shrink-0"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-3 text-sm">
+              <dl className="grid grid-cols-1 gap-2">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[var(--wt-text-2)]">Date</dt>
+                  <dd className="text-[var(--wt-text)] font-medium">{formatFriendlyDate(selectedDonation.donation_date)}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[var(--wt-text-2)]">Amount</dt>
+                  <dd className="text-[var(--wt-text)] font-medium">{formatAmount(selectedDonation, currency)}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[var(--wt-text-2)]">Type</dt>
+                  <dd className="text-[var(--wt-text)]">{selectedDonation.donation_type ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[var(--wt-text-2)]">Channel</dt>
+                  <dd className="text-[var(--wt-text)]">{selectedDonation.channel_source ?? '—'}</dd>
+                </div>
+                {selectedDonation.campaign_name?.trim() && (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-[var(--wt-text-2)]">Campaign</dt>
+                    <dd className="text-[var(--wt-text)]">{selectedDonation.campaign_name}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[var(--wt-text-2)]">Recurring</dt>
+                  <dd className="text-[var(--wt-text)]">{selectedDonation.is_recurring ? 'Yes' : 'No'}</dd>
+                </div>
+              </dl>
+              {selectedDonation.notes?.trim() && (
+                <div className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] p-3">
+                  <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Notes</div>
+                  <p className="text-[var(--wt-text)] mt-1 whitespace-pre-wrap text-sm">{selectedDonation.notes}</p>
+                </div>
+              )}
+              <p className="text-xs text-[var(--wt-text-2)] leading-relaxed">
+                Download opens an HTML receipt. Use your browser&apos;s <strong className="text-[var(--wt-text)]">Print → Save as PDF</strong>{' '}
+                if you need a PDF. EIN {ORG.ein}.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => downloadGiftReceipt(selectedDonation)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--wt-accent)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
+                >
+                  <Download className="h-4 w-4 shrink-0" aria-hidden />
+                  Download gift receipt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDonation(null)}
+                  className="rounded-lg border border-[var(--wt-border)] px-4 py-2.5 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_12%,transparent)]"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
