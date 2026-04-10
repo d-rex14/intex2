@@ -29,9 +29,11 @@ CREATE INDEX IF NOT EXISTS case_conferences_date_idx
 
 CREATE SEQUENCE IF NOT EXISTS public.case_conferences_case_conference_id_seq;
 
+-- Empty table: setval(…, 1, false) so next nextval() returns 1. Populated: sync to MAX with is_called true.
 SELECT setval(
   'public.case_conferences_case_conference_id_seq',
-  COALESCE((SELECT MAX(case_conference_id) FROM public.case_conferences), 0)
+  COALESCE((SELECT MAX(case_conference_id) FROM public.case_conferences), 1),
+  (SELECT MAX(case_conference_id) FROM public.case_conferences) IS NOT NULL
 );
 
 ALTER TABLE public.case_conferences
