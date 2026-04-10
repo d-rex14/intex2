@@ -164,11 +164,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Reset MFA state on any auth user change to avoid stale values from a previous session.
+    setAal(null);
+    setHasMfaFactor(false);
+
     if (session?.user) {
-      refreshAal();
-    } else {
-      setAal(null);
-      setHasMfaFactor(false);
+      void refreshAal();
     }
   }, [session?.user?.id, refreshAal]);
 
