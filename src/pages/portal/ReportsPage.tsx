@@ -182,7 +182,7 @@ function BandBarChart({ data }: { data: UpgradeBandSummary[] }) {
 
 function formatSafehouseName(name: string | null, id: number) {
   const raw = name ?? `Safehouse ${id}`
-  return raw.replace(/Lighthouse/gi, 'Watchtower')
+  return raw.replace(/^(Watchtower|Lighthouse)\s+/i, '')
 }
 
 function SafehouseBar({ data }: { data: SafehouseScore[] }) {
@@ -205,11 +205,12 @@ function SafehouseBar({ data }: { data: SafehouseScore[] }) {
         const pct = (Math.abs(v) / absMax) * 50
         const positive = v >= 0
         const label = formatSafehouseName(d.safehouse_name, d.safehouse_id)
+        const fullName = d.safehouse_name ?? `Safehouse ${d.safehouse_id}`
         return (
           <div key={d.safehouse_id} className="grid grid-cols-[9rem_1fr_3.5rem] items-center gap-3">
             <span
               className="text-sm text-[var(--wt-text)] truncate text-right"
-              title={label}
+              title={fullName}
             >
               {label}
             </span>
