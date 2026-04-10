@@ -56,7 +56,7 @@ All admin pages (`/admin/donors`, `/admin/caseload`, `/admin/process-recordings`
 
 ### Data Model
 
-17 sample CSV files in `data/lighthouse_csv_v7/` represent the full schema across three domains:
+17 sample CSV files in `data/raw/` represent the full schema across three domains:
 - **Case Management**: residents, process_recordings, home_visitations, education_records, health_wellbeing_records, intervention_plans, incident_reports, safehouse_monthly_metrics
 - **Donor & Support**: supporters, donations, in_kind_donation_items, donation_allocations, partners, partner_assignments, safehouses
 - **Outreach**: social_media_posts, public_impact_snapshots

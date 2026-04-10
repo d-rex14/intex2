@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 -- donor_churn_scores: unique supporter_id (required for upsert / ON CONFLICT)
 --
--- Legacy root schema.sql defines PK on score_id only, so upsert with
+-- Older schema snapshots defined PK on score_id only, so upsert with
 -- on_conflict='supporter_id' fails with: 42P10 "no unique or exclusion constraint
 -- matching the ON CONFLICT specification".
 --
