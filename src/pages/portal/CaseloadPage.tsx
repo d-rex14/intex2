@@ -1,4 +1,4 @@
-import { ChevronDown, X } from 'lucide-react'
+import { ChevronDown, RotateCcw, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
@@ -243,20 +243,12 @@ const selectClass =
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 const CASE_STATUS_OPTIONS = ['Active', 'On Hold', 'Closed', 'Transferred'] as const
 
-/** Table sort: Active caseload first, then other open statuses, then closed pipeline. */
-const CASE_STATUS_SORT_RANK: Record<string, number> = {
-  Active: 0,
-  'On Hold': 1,
-  Closed: 2,
-  Transferred: 3,
-}
-
-function caseStatusSortRank(status: string | null | undefined): number {
-  if (status != null && Object.prototype.hasOwnProperty.call(CASE_STATUS_SORT_RANK, status)) {
-    return CASE_STATUS_SORT_RANK[status]
-  }
-  return 50
-}
+const DEFAULT_CASELOAD_FILTERS = {
+  status: 'Active',
+  safehouse: 'all',
+  category: 'all',
+  search: '',
+} as const
 
 /** ML insight badges apply to in-program cases only (not closed or transferred-out). */
 function showMlForStatus(status: string | null | undefined): boolean {
@@ -295,7 +287,8 @@ function subCategoryTags(r: Resident): string[] {
 function toDraft(r?: Resident): ResidentDraft {
   return {
     safehouse_id: r?.safehouse_id != null ? String(r.safehouse_id) : '',
-    case_status: r?.case_status ?? '',
+    // New intakes only: default Active so the row isn’t hidden behind the table’s default status filter.
+    case_status: r ? (r.case_status ?? '') : 'Active',
     sex: r?.sex ?? '',
     case_category: r?.case_category ?? '',
     date_of_admission: (r?.date_of_admission ?? '').slice(0, 10),
@@ -511,10 +504,10 @@ function ResidentDetailModal({
 export function CaseloadPage() {
   const { effectiveRoleIds } = useAuth()
   const staff = isStaffLike(effectiveRoleIds)
-  const [statusFilter, setStatusFilter] = useState('Active')
-  const [safehouseFilter, setSafehouseFilter] = useState('all')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState(DEFAULT_CASELOAD_FILTERS.status)
+  const [safehouseFilter, setSafehouseFilter] = useState(DEFAULT_CASELOAD_FILTERS.safehouse)
+  const [categoryFilter, setCategoryFilter] = useState(DEFAULT_CASELOAD_FILTERS.category)
+  const [search, setSearch] = useState(DEFAULT_CASELOAD_FILTERS.search)
   const [pageSize, setPageSize] = useState<number>(25)
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -583,14 +576,17 @@ export function CaseloadPage() {
 
   const filteredSorted = useMemo(() => {
     const arr = [...filtered]
-    arr.sort((a, b) => {
-      const ra = caseStatusSortRank(a.case_status)
-      const rb = caseStatusSortRank(b.case_status)
-      if (ra !== rb) return ra - rb
-      return a.resident_id - b.resident_id
-    })
+    arr.sort((a, b) => a.resident_id - b.resident_id)
     return arr
   }, [filtered])
+
+  const resetFilters = () => {
+    setStatusFilter(DEFAULT_CASELOAD_FILTERS.status)
+    setSafehouseFilter(DEFAULT_CASELOAD_FILTERS.safehouse)
+    setCategoryFilter(DEFAULT_CASELOAD_FILTERS.category)
+    setSearch(DEFAULT_CASELOAD_FILTERS.search)
+    setPage(1)
+  }
 
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / pageSize))
   const pagedRows = useMemo(() => {
@@ -712,6 +708,7 @@ export function CaseloadPage() {
     if (dbError) setFormError(dbError)
     else {
       closeForm()
+      setPage(1)
       refetch()
     }
     setSaving(false)
@@ -791,6 +788,17 @@ export function CaseloadPage() {
             {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
+        <div className="flex flex-col gap-1 min-w-[10rem]">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Filter actions</span>
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)] outline-none focus:border-[var(--wt-accent)]"
+          >
+            <RotateCcw size={16} className="shrink-0 text-[var(--wt-text-2)]" aria-hidden />
+            Reset filters
+          </button>
+        </div>
       </div>
 
       {staff ? <CaseloadMLMetricsGuide /> : null}
