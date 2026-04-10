@@ -17,7 +17,6 @@ export function PublicLayout() {
       { to: '/', label: 'Home' },
       { to: '/blog', label: 'Blog' },
       { to: '/about', label: 'About' },
-      { to: '/impact', label: 'Impact' },
       { to: '/donations', label: 'Donations' },
       { to: '/privacy', label: 'Privacy' },
     ]

@@ -9,7 +9,6 @@ import { AboutPage } from './pages/public/AboutPage'
 import { BlogPage } from './pages/public/BlogPage'
 import { DonationsPage } from './pages/public/DonationsPage'
 import { HomePage } from './pages/public/HomePage'
-import { ImpactPage } from './pages/public/ImpactPage'
 import { BoardMemberPage } from './pages/public/BoardMemberPage'
 import {
   BiologicalNeedsPage,
@@ -260,6 +259,33 @@ function LoginPage() {
   const [mfaCode, setMfaCode] = React.useState('')
   const [mfaFactorId, setMfaFactorId] = React.useState<string | null>(null)
   const [verifyModalOpen, setVerifyModalOpen] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!session || !supabase) return
+    if (!hasMfaFactor || aal !== 'aal1') return
+
+    let cancelled = false
+    ;(async () => {
+      const { data: factors, error: factorsErr } = await supabase.auth.mfa.listFactors()
+      if (cancelled) return
+      if (factorsErr) {
+        setError(factorsErr.message)
+        return
+      }
+      const totpFactor = factors?.totp?.find(f => f.status === 'verified')
+      if (!totpFactor) {
+        setError('MFA is required for this account, but no verified authenticator was found.')
+        return
+      }
+      setMfaFactorId(totpFactor.id)
+      setMode('mfa')
+      setError(null)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [session?.user?.id, hasMfaFactor, aal])
 
   if (session && aal === 'aal2') return <Navigate to="/portal" replace />
   if (session && !hasMfaFactor) return <Navigate to="/portal" replace />
@@ -651,7 +677,7 @@ export function App() {
           <Route path="psyc-needs" element={<PsychologicalNeedsPage />} />
           <Route path="social-needs" element={<SocialNeedsPage />} />
           <Route path="love-belong" element={<LoveBelongingPage />} />
-          <Route path="impact" element={<ImpactPage />} />
+          <Route path="impact" element={<Navigate to="/donations" replace />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="auth/callback" element={<AuthCallbackPage />} />
