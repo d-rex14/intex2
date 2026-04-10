@@ -9,6 +9,7 @@ import { AboutPage } from './pages/public/AboutPage'
 import { BlogPage } from './pages/public/BlogPage'
 import { DonationsPage } from './pages/public/DonationsPage'
 import { HomePage } from './pages/public/HomePage'
+import { ImpactPage } from './pages/public/ImpactPage'
 import { BoardMemberPage } from './pages/public/BoardMemberPage'
 import {
   BiologicalNeedsPage,
@@ -650,7 +651,7 @@ export function App() {
           <Route path="psyc-needs" element={<PsychologicalNeedsPage />} />
           <Route path="social-needs" element={<SocialNeedsPage />} />
           <Route path="love-belong" element={<LoveBelongingPage />} />
-          <Route path="impact" element={<Navigate to="/donations" replace />} />
+          <Route path="impact" element={<ImpactPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="auth/callback" element={<AuthCallbackPage />} />

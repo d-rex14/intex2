@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
 import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
+import { invalidatePortalDashboard } from '../../lib/portalDataEvents'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
-import { CaseConferencesSection } from './CaseConferencesSection'
 import {
   ModalShell,
   fetchResidentOptions,
@@ -16,108 +14,51 @@ import {
   type ResidentOption,
 } from './visitationsShared'
 
-type VisitationRow = {
-  visitation_id: number
-  resident_id: number | null
-  visit_date: string | null
-  social_worker: string | null
-  visit_type: string | null
-  location_visited: string | null
-  family_members_present: string | null
-  purpose: string | null
-  observations: string | null
-  family_cooperation_level: string | null
-  safety_concerns_noted: boolean | null
-  follow_up_needed: boolean | null
-  follow_up_notes: string | null
-  visit_outcome: string | null
+type CaseConferenceRow = {
+  case_conference_id: number
+  resident_id: number
+  conference_date: string
+  conference_type: string | null
+  facilitator: string | null
+  status: string
+  notes: string | null
   residents?: {
     internal_code?: string | null
     case_control_no?: string | null
   } | { internal_code?: string | null; case_control_no?: string | null }[] | null
 }
 
-async function fetchVisitations(): Promise<{ data: VisitationRow[] | null; error: { message: string } | null }> {
-  if (!supabase) return { data: null, error: { message: 'Supabase is not configured.' } }
-  const { data, error } = await supabase
-    .from('home_visitations')
-    .select(
-      `
-        visitation_id,
-        resident_id,
-        visit_date,
-        social_worker,
-        visit_type,
-        location_visited,
-        family_members_present,
-        purpose,
-        observations,
-        family_cooperation_level,
-        safety_concerns_noted,
-        follow_up_needed,
-        follow_up_notes,
-        visit_outcome,
-        residents ( internal_code, case_control_no )
-      `,
-    )
-    .order('visit_date', { ascending: false })
-    .limit(1000)
-  if (error) return { data: null, error: { message: error.message } }
-  return { data: (data ?? []) as VisitationRow[], error: null }
-}
-
-type VisitationDraft = Pick<
-  VisitationRow,
-  | 'resident_id'
-  | 'visit_date'
-  | 'social_worker'
-  | 'visit_type'
-  | 'location_visited'
-  | 'family_members_present'
-  | 'purpose'
-  | 'observations'
-  | 'family_cooperation_level'
-  | 'safety_concerns_noted'
-  | 'follow_up_needed'
-  | 'follow_up_notes'
-  | 'visit_outcome'
->
-
-function emptyDraft(): VisitationDraft {
-  return {
-    resident_id: null,
-    visit_date: new Date().toISOString().slice(0, 10),
-    social_worker: '',
-    visit_type: 'Routine Follow-Up',
-    location_visited: '',
-    family_members_present: '',
-    purpose: '',
-    observations: '',
-    family_cooperation_level: 'Neutral',
-    safety_concerns_noted: false,
-    follow_up_needed: false,
-    follow_up_notes: '',
-    visit_outcome: 'Inconclusive',
-  }
+type ConferenceDraft = {
+  resident_id: number | null
+  conference_date: string
+  conference_type: string
+  facilitator: string
+  status: string
+  notes: string
 }
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 
-const VISIT_TYPE_OPTIONS = [
-  'Crisis',
-  'Emergency',
-  'Initial',
-  'Post-Placement Monitoring',
-  'Pre-Reintegration',
-  'Reintegration Assessment',
-  'Routine Follow-Up',
-] as const
+const CONFERENCE_TYPE_OPTIONS = ['Initial', 'Review', 'Discharge planning', 'Other'] as const
 
-const COOPERATION_OPTIONS = ['Cooperative', 'Highly Cooperative', 'Neutral', 'Uncooperative'] as const
+const STATUS_OPTIONS = ['Scheduled', 'Completed', 'Cancelled'] as const
 
-const OUTCOME_OPTIONS = ['Favorable', 'Inconclusive', 'Needs Improvement', 'Neutral', 'Unfavorable'] as const
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10)
+}
 
-function defaultSocialWorkerCodes(): string[] {
+function emptyDraft(): ConferenceDraft {
+  return {
+    resident_id: null,
+    conference_date: todayISO(),
+    conference_type: 'Review',
+    facilitator: '',
+    status: 'Scheduled',
+    notes: '',
+  }
+}
+
+function defaultFacilitatorCodes(): string[] {
   return Array.from({ length: 25 }, (_, i) => `SW-${String(i + 1).padStart(2, '0')}`)
 }
 
@@ -130,83 +71,86 @@ function mergeSortedStrings(base: readonly string[], fromData: Iterable<string>)
   return [...s].sort((a, b) => a.localeCompare(b))
 }
 
-export function VisitationsPage() {
-  useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const tab: 'visitations' | 'conferences' = searchParams.get('tab') === 'conferences' ? 'conferences' : 'visitations'
-  const setTab = (next: 'visitations' | 'conferences') => {
-    if (next === 'conferences') setSearchParams({ tab: 'conferences' })
-    else setSearchParams({})
+async function fetchCaseConferences(): Promise<{ data: CaseConferenceRow[] | null; error: { message: string } | null }> {
+  if (!supabase) return { data: null, error: { message: 'Supabase is not configured.' } }
+  const { data, error } = await supabase
+    .from('case_conferences')
+    .select(
+      `
+        case_conference_id,
+        resident_id,
+        conference_date,
+        conference_type,
+        facilitator,
+        status,
+        notes,
+        residents ( internal_code, case_control_no )
+      `,
+    )
+    .order('conference_date', { ascending: false })
+    .limit(2000)
+  if (error) return { data: null, error: { message: error.message } }
+  return { data: (data ?? []) as CaseConferenceRow[], error: null }
+}
+
+function matchesWhenFilter(row: CaseConferenceRow, when: 'upcoming' | 'past' | 'all'): boolean {
+  if (when === 'all') return true
+  const d = (row.conference_date ?? '').toString().slice(0, 10)
+  const today = todayISO()
+  const st = (row.status ?? '').trim()
+
+  if (when === 'upcoming') {
+    if (st === 'Cancelled' || st === 'Completed') return false
+    return d >= today && st === 'Scheduled'
   }
+  if (when === 'past') {
+    if (st === 'Cancelled' || st === 'Completed') return true
+    if (d < today) return true
+    return false
+  }
+  return true
+}
 
-  useEffect(() => {
-    if (tab === 'conferences') {
-      setDetailRow(null)
-      setCreating(false)
-      setEditing(null)
-      setDeleting(null)
-    }
-  }, [tab])
-
+export function CaseConferencesSection() {
   const [search, setSearch] = useState('')
   const [residentFilter, setResidentFilter] = useState<string>('all')
-  const [workerFilter, setWorkerFilter] = useState<string>('all')
-  const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [outcomeFilter, setOutcomeFilter] = useState<string>('all')
-  const [safetyOnly, setSafetyOnly] = useState(false)
+  const [whenFilter, setWhenFilter] = useState<'upcoming' | 'past' | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [fromDate, setFromDate] = useState<string>('')
   const [toDate, setToDate] = useState<string>('')
   const [pageSize, setPageSize] = useState<number>(25)
   const [page, setPage] = useState(1)
 
-  const [detailRow, setDetailRow] = useState<VisitationRow | null>(null)
+  const [detailRow, setDetailRow] = useState<CaseConferenceRow | null>(null)
   const [creating, setCreating] = useState(false)
-  const [editing, setEditing] = useState<VisitationRow | null>(null)
-  const [draft, setDraft] = useState<VisitationDraft>(emptyDraft())
-  const [deleting, setDeleting] = useState<VisitationRow | null>(null)
+  const [editing, setEditing] = useState<CaseConferenceRow | null>(null)
+  const [draft, setDraft] = useState<ConferenceDraft>(emptyDraft())
+  const [deleting, setDeleting] = useState<CaseConferenceRow | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const visitQ = useMemo(() => () => fetchVisitations(), [])
-  const { data: rawRows, loading, error, refetch } = useSupabaseQuery<VisitationRow[]>(visitQ)
+  const confQ = useMemo(() => () => fetchCaseConferences(), [])
+  const { data: rawRows, loading, error, refetch } = useSupabaseQuery<CaseConferenceRow[]>(confQ)
 
   const residentsQ = useMemo(() => () => fetchResidentOptions(), [])
   const { data: residentOptions } = useSupabaseQuery<ResidentOption[]>(residentsQ)
 
-  const socialWorkers = useMemo(() => {
+  const facilitators = useMemo(() => {
     const fromRows: string[] = []
     for (const r of rawRows ?? []) {
-      const w = (r.social_worker ?? '').trim()
+      const w = (r.facilitator ?? '').trim()
       if (w) fromRows.push(w)
     }
-    return mergeSortedStrings(defaultSocialWorkerCodes(), fromRows)
+    return mergeSortedStrings(defaultFacilitatorCodes(), fromRows)
   }, [rawRows])
 
-  const visitTypes = useMemo(() => {
+  const conferenceTypes = useMemo(() => {
     const fromRows: string[] = []
     for (const r of rawRows ?? []) {
-      const t = (r.visit_type ?? '').trim()
+      const t = (r.conference_type ?? '').trim()
       if (t) fromRows.push(t)
     }
-    return mergeSortedStrings(VISIT_TYPE_OPTIONS, fromRows)
-  }, [rawRows])
-
-  const cooperationLevels = useMemo(() => {
-    const fromRows: string[] = []
-    for (const r of rawRows ?? []) {
-      const t = (r.family_cooperation_level ?? '').trim()
-      if (t) fromRows.push(t)
-    }
-    return mergeSortedStrings(COOPERATION_OPTIONS, fromRows)
-  }, [rawRows])
-
-  const outcomes = useMemo(() => {
-    const fromRows: string[] = []
-    for (const r of rawRows ?? []) {
-      const t = (r.visit_outcome ?? '').trim()
-      if (t) fromRows.push(t)
-    }
-    return mergeSortedStrings(OUTCOME_OPTIONS, fromRows)
+    return mergeSortedStrings(CONFERENCE_TYPE_OPTIONS, fromRows)
   }, [rawRows])
 
   const filtered = useMemo(() => {
@@ -217,15 +161,13 @@ export function VisitationsPage() {
     const residentId =
       residentFilter === 'all' ? null : Number.isFinite(Number(residentFilter)) ? Number(residentFilter) : null
 
-    return rows.filter((r) => {
+    const base = rows.filter((r) => {
+      if (!matchesWhenFilter(r, whenFilter)) return false
       if (residentId != null && r.resident_id !== residentId) return false
-      if (workerFilter !== 'all' && (r.social_worker ?? '') !== workerFilter) return false
-      if (typeFilter !== 'all' && (r.visit_type ?? '') !== typeFilter) return false
-      if (outcomeFilter !== 'all' && (r.visit_outcome ?? '') !== outcomeFilter) return false
-      if (safetyOnly && !r.safety_concerns_noted) return false
+      if (statusFilter !== 'all' && (r.status ?? '') !== statusFilter) return false
 
       if (fromT != null || toT != null) {
-        const t = parseISODateToUTC(r.visit_date)
+        const t = parseISODateToUTC(r.conference_date)
         if (t == null) return false
         if (fromT != null && t < fromT) return false
         if (toT != null && t > toT) return false
@@ -233,26 +175,24 @@ export function VisitationsPage() {
 
       if (q) {
         const name = residentLabelFromRow(r).toLowerCase()
-        const id = String(r.visitation_id)
-        const sw = (r.social_worker ?? '').toLowerCase()
-        const obs = (r.observations ?? '').toLowerCase()
-        const purpose = (r.purpose ?? '').toLowerCase()
-        if (!name.includes(q) && !id.includes(q) && !sw.includes(q) && !obs.includes(q) && !purpose.includes(q)) return false
+        const id = String(r.case_conference_id)
+        const fac = (r.facilitator ?? '').toLowerCase()
+        const ty = (r.conference_type ?? '').toLowerCase()
+        const notes = (r.notes ?? '').toLowerCase()
+        if (!name.includes(q) && !id.includes(q) && !fac.includes(q) && !ty.includes(q) && !notes.includes(q)) return false
       }
 
       return true
     })
-  }, [
-    rawRows,
-    search,
-    residentFilter,
-    workerFilter,
-    typeFilter,
-    outcomeFilter,
-    safetyOnly,
-    fromDate,
-    toDate,
-  ])
+
+    const ascending = whenFilter === 'upcoming'
+    return [...base].sort((a, b) => {
+      const da = parseISODateToUTC(a.conference_date) ?? 0
+      const db = parseISODateToUTC(b.conference_date) ?? 0
+      if (da !== db) return ascending ? da - db : db - da
+      return a.case_conference_id - b.case_conference_id
+    })
+  }, [rawRows, search, residentFilter, whenFilter, statusFilter, fromDate, toDate])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const pagedRows = useMemo(() => {
@@ -260,10 +200,9 @@ export function VisitationsPage() {
     return filtered.slice(start, start + pageSize)
   }, [filtered, page, pageSize])
 
-  useMemo(() => {
+  useEffect(() => {
     if (page > totalPages) setPage(totalPages)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalPages])
+  }, [page, totalPages])
 
   const openCreate = () => {
     setFormError(null)
@@ -271,58 +210,49 @@ export function VisitationsPage() {
     setCreating(true)
   }
 
-  const openEdit = (row: VisitationRow) => {
+  const openEdit = (row: CaseConferenceRow) => {
     setFormError(null)
     setEditing(row)
     setDraft({
       resident_id: row.resident_id ?? null,
-      visit_date: row.visit_date?.slice(0, 10) ?? '',
-      social_worker: row.social_worker ?? '',
-      visit_type: row.visit_type ?? '',
-      location_visited: row.location_visited ?? '',
-      family_members_present: row.family_members_present ?? '',
-      purpose: row.purpose ?? '',
-      observations: row.observations ?? '',
-      family_cooperation_level: row.family_cooperation_level ?? '',
-      safety_concerns_noted: Boolean(row.safety_concerns_noted),
-      follow_up_needed: Boolean(row.follow_up_needed),
-      follow_up_notes: row.follow_up_notes ?? '',
-      visit_outcome: row.visit_outcome ?? '',
+      conference_date: row.conference_date?.slice(0, 10) ?? '',
+      conference_type: row.conference_type ?? '',
+      facilitator: row.facilitator ?? '',
+      status: row.status ?? 'Scheduled',
+      notes: row.notes ?? '',
     })
   }
 
   const saveDraft = async () => {
     if (!supabase) return
+    if (draft.resident_id == null) {
+      setFormError('Select a resident.')
+      return
+    }
     setBusy(true)
     setFormError(null)
 
     const payload = {
       resident_id: draft.resident_id,
-      visit_date: draft.visit_date || null,
-      social_worker: draft.social_worker?.trim() || null,
-      visit_type: draft.visit_type?.trim() || null,
-      location_visited: draft.location_visited?.trim() || null,
-      family_members_present: draft.family_members_present?.trim() || null,
-      purpose: draft.purpose?.trim() || null,
-      observations: draft.observations?.trim() || null,
-      family_cooperation_level: draft.family_cooperation_level?.trim() || null,
-      safety_concerns_noted: Boolean(draft.safety_concerns_noted),
-      follow_up_needed: Boolean(draft.follow_up_needed),
-      follow_up_notes: draft.follow_up_notes?.trim() || null,
-      visit_outcome: draft.visit_outcome?.trim() || null,
+      conference_date: draft.conference_date || null,
+      conference_type: draft.conference_type?.trim() || null,
+      facilitator: draft.facilitator?.trim() || null,
+      status: draft.status?.trim() || 'Scheduled',
+      notes: draft.notes?.trim() || null,
     }
 
     try {
       if (editing) {
-        const { error: upErr } = await supabase.from('home_visitations').update(payload).eq('visitation_id', editing.visitation_id)
+        const { error: upErr } = await supabase.from('case_conferences').update(payload).eq('case_conference_id', editing.case_conference_id)
         if (upErr) throw upErr
         setEditing(null)
       } else {
-        const { error: insErr } = await supabase.from('home_visitations').insert(payload)
+        const { error: insErr } = await supabase.from('case_conferences').insert(payload)
         if (insErr) throw insErr
         setCreating(false)
       }
       refetch()
+      invalidatePortalDashboard()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to save.'
       setFormError(msg)
@@ -336,10 +266,11 @@ export function VisitationsPage() {
     setBusy(true)
     setFormError(null)
     try {
-      const { error: delErr } = await supabase.from('home_visitations').delete().eq('visitation_id', deleting.visitation_id)
+      const { error: delErr } = await supabase.from('case_conferences').delete().eq('case_conference_id', deleting.case_conference_id)
       if (delErr) throw delErr
       setDeleting(null)
       refetch()
+      invalidatePortalDashboard()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to delete.'
       setFormError(msg)
@@ -352,7 +283,7 @@ export function VisitationsPage() {
     return (
       <div className="rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-6">
         <p className="text-sm text-[var(--wt-text-2)]">
-          Set <code className="text-xs">VITE_SUPABASE_URL</code> and <code className="text-xs">VITE_SUPABASE_ANON_KEY</code> to load visitations and case conferences.
+          Set <code className="text-xs">VITE_SUPABASE_URL</code> and <code className="text-xs">VITE_SUPABASE_ANON_KEY</code> to load case conferences.
         </p>
       </div>
     )
@@ -363,67 +294,30 @@ export function VisitationsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[var(--wt-text)]">Visitations &amp; Conferences</h1>
+          <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Case conferences</h2>
           <p className="text-sm text-[var(--wt-text-2)] mt-1">
-            Home and field visits plus interdisciplinary case conferences for resident care coordination.
+            Interdisciplinary meetings for care planning, reviews, and discharge preparation.
           </p>
         </div>
-        <div className="inline-flex rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-1 gap-1">
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setTab('visitations')}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-              tab === 'visitations'
-                ? 'bg-[var(--wt-accent)] text-white'
-                : 'text-[var(--wt-text-2)] hover:text-[var(--wt-text)]'
-            }`}
+            onClick={() => refetch()}
+            className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_18%,transparent)] transition-colors"
           >
-            Home visitations
+            Refresh
           </button>
           <button
             type="button"
-            onClick={() => setTab('conferences')}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-              tab === 'conferences'
-                ? 'bg-[var(--wt-accent)] text-white'
-                : 'text-[var(--wt-text-2)] hover:text-[var(--wt-text)]'
-            }`}
+            onClick={openCreate}
+            className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
           >
-            Case conferences
+            New conference
           </button>
         </div>
       </div>
-
-      {tab === 'conferences' ? (
-        <CaseConferencesSection />
-      ) : (
-        <>
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-            <div>
-              <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Home visitations</h2>
-              <p className="text-sm text-[var(--wt-text-2)] mt-1">
-                Field and home visits for family assessment, reintegration planning, and follow-up.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => refetch()}
-                className="rounded-lg border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 text-sm font-medium text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_18%,transparent)] transition-colors"
-              >
-                Refresh
-              </button>
-              <button
-                type="button"
-                onClick={openCreate}
-                className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--wt-accent-hover)] transition-colors"
-              >
-                New visitation
-              </button>
-            </div>
-          </div>
 
       {formError && (
         <div className="rounded-lg border border-[#dc2626]/40 bg-[#dc2626]/10 px-4 py-2 text-sm text-[#dc2626] flex justify-between gap-4 items-center">
@@ -447,7 +341,7 @@ export function VisitationsPage() {
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Resident, worker, purpose, observations…"
+            placeholder="Resident, facilitator, type, notes…"
             className={selectClass}
           />
         </label>
@@ -474,74 +368,39 @@ export function VisitationsPage() {
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 min-w-[12rem]">
-          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Social worker</span>
+        <label className="flex flex-col gap-1 min-w-[10rem]">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">When</span>
           <select
             className={selectClass}
-            value={workerFilter}
+            value={whenFilter}
             onChange={(e) => {
-              setWorkerFilter(e.target.value)
+              setWhenFilter(e.target.value as 'upcoming' | 'past' | 'all')
               setPage(1)
             }}
           >
-            <option value="all">All workers</option>
-            {socialWorkers.map((w) => (
-              <option key={w} value={w}>
-                {w}
-              </option>
-            ))}
+            <option value="all">All</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="past">Past</option>
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 min-w-[12rem]">
-          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Visit type</span>
+        <label className="flex flex-col gap-1 min-w-[10rem]">
+          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Status</span>
           <select
             className={selectClass}
-            value={typeFilter}
+            value={statusFilter}
             onChange={(e) => {
-              setTypeFilter(e.target.value)
+              setStatusFilter(e.target.value)
               setPage(1)
             }}
           >
-            <option value="all">All types</option>
-            {visitTypes.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            <option value="all">All statuses</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s}
               </option>
             ))}
           </select>
-        </label>
-
-        <label className="flex flex-col gap-1 min-w-[12rem]">
-          <span className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">Outcome</span>
-          <select
-            className={selectClass}
-            value={outcomeFilter}
-            onChange={(e) => {
-              setOutcomeFilter(e.target.value)
-              setPage(1)
-            }}
-          >
-            <option value="all">All outcomes</option>
-            {outcomes.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex items-end gap-2 pb-1">
-          <input
-            type="checkbox"
-            checked={safetyOnly}
-            onChange={(e) => {
-              setSafetyOnly(e.target.checked)
-              setPage(1)
-            }}
-            className="rounded border-[var(--wt-border)] mb-2"
-          />
-          <span className="text-sm text-[var(--wt-text)]">Safety concerns only</span>
         </label>
 
         <label className="flex flex-col gap-1 min-w-[10rem]">
@@ -599,7 +458,7 @@ export function VisitationsPage() {
         {loading ? (
           <div className="flex items-center justify-center py-16 gap-3 text-[var(--wt-text-2)] text-sm">
             <div className="w-6 h-6 border-2 border-[var(--wt-accent)] border-t-transparent rounded-full animate-spin" />
-            Loading visitations…
+            Loading conferences…
           </div>
         ) : error ? (
           <div className="p-6">
@@ -612,8 +471,9 @@ export function VisitationsPage() {
                 <tr className="border-b border-[var(--wt-border)] text-[var(--wt-text-2)] uppercase text-[10px] tracking-widest">
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Date</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Resident</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap">Worker</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Type</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap">Facilitator</th>
+                  <th className="px-4 py-3 font-medium whitespace-nowrap">Status</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Details</th>
                   <th className="px-4 py-3 font-medium whitespace-nowrap text-right">Actions</th>
                 </tr>
@@ -621,13 +481,14 @@ export function VisitationsPage() {
               <tbody>
                 {pagedRows.map((r) => (
                   <tr
-                    key={r.visitation_id}
+                    key={r.case_conference_id}
                     className="border-b border-[var(--wt-border)] last:border-0 hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_8%,transparent)]"
                   >
-                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{formatFriendlyDate(r.visit_date)}</td>
+                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{formatFriendlyDate(r.conference_date)}</td>
                     <td className="px-4 py-3 text-[var(--wt-text)] font-medium whitespace-nowrap">{residentLabelFromRow(r)}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{r.social_worker ?? '—'}</td>
-                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.visit_type ?? '—'}</td>
+                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.conference_type ?? '—'}</td>
+                    <td className="px-4 py-3 text-[var(--wt-text-2)] whitespace-nowrap">{r.facilitator ?? '—'}</td>
+                    <td className="px-4 py-3 text-[var(--wt-text)] whitespace-nowrap">{r.status ?? '—'}</td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
@@ -659,8 +520,8 @@ export function VisitationsPage() {
                 ))}
                 {pagedRows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">
-                      No visitations found.
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-[var(--wt-text-2)]">
+                      No conferences found.
                     </td>
                   </tr>
                 )}
@@ -714,21 +575,18 @@ export function VisitationsPage() {
 
       {detailRow && (
         <ModalShell
-          title={`Visitation #${detailRow.visitation_id}`}
-          subtitle={`${formatFriendlyDate(detailRow.visit_date)} • ${residentLabelFromRow(detailRow)} • ${detailRow.social_worker ?? '—'}`}
+          title={`Conference #${detailRow.case_conference_id}`}
+          subtitle={`${formatFriendlyDate(detailRow.conference_date)} • ${residentLabelFromRow(detailRow)} • ${detailRow.status ?? '—'}`}
           onClose={() => setDetailRow(null)}
         >
           <div className="space-y-4">
             <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
-              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-3">Visit summary</div>
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-3">Summary</div>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 {[
-                  ['Type', detailRow.visit_type ?? '—'],
-                  ['Outcome', detailRow.visit_outcome ?? '—'],
-                  ['Cooperation', detailRow.family_cooperation_level ?? '—'],
-                  ['Safety concerns', detailRow.safety_concerns_noted ? 'Yes' : 'No'],
-                  ['Follow-up needed', detailRow.follow_up_needed ? 'Yes' : 'No'],
-                  ['Location', detailRow.location_visited?.trim() || '—'],
+                  ['Type', detailRow.conference_type ?? '—'],
+                  ['Facilitator', detailRow.facilitator ?? '—'],
+                  ['Status', detailRow.status ?? '—'],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <dt className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)]">{label}</dt>
@@ -739,18 +597,8 @@ export function VisitationsPage() {
             </div>
 
             <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
-              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Purpose</div>
-              <p className="text-sm text-[var(--wt-text)] whitespace-pre-wrap">{detailRow.purpose?.trim() || '—'}</p>
-            </div>
-
-            <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
-              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Observations</div>
-              <p className="text-sm text-[var(--wt-text)] whitespace-pre-wrap">{detailRow.observations?.trim() || '—'}</p>
-            </div>
-
-            <div className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-surface)] p-4">
-              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Follow-up notes</div>
-              <p className="text-sm text-[var(--wt-text)] whitespace-pre-wrap">{detailRow.follow_up_notes?.trim() || '—'}</p>
+              <div className="text-[10px] uppercase tracking-widest text-[var(--wt-text-2)] mb-2">Notes</div>
+              <p className="text-sm text-[var(--wt-text)] whitespace-pre-wrap">{detailRow.notes?.trim() || '—'}</p>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -768,8 +616,8 @@ export function VisitationsPage() {
 
       {(creating || editing) && (
         <ModalShell
-          title={editing ? `Edit visitation #${editing.visitation_id}` : 'New visitation'}
-          subtitle="Create or update a home/field visit record."
+          title={editing ? `Edit conference #${editing.case_conference_id}` : 'New case conference'}
+          subtitle="Schedule or document an interdisciplinary case conference."
           onClose={() => {
             setCreating(false)
             setEditing(null)
@@ -778,11 +626,11 @@ export function VisitationsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
-                Visit date
+                Conference date
                 <input
                   type="date"
-                  value={draft.visit_date ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, visit_date: e.target.value }))}
+                  value={draft.conference_date ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, conference_date: e.target.value }))}
                   className={inputClass}
                 />
               </label>
@@ -807,30 +655,14 @@ export function VisitationsPage() {
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
-                Social worker
+                Conference type
                 <select
-                  value={draft.social_worker ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, social_worker: e.target.value }))}
+                  value={draft.conference_type ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, conference_type: e.target.value }))}
                   className={inputClass}
                 >
                   <option value="">—</option>
-                  {socialWorkers.map((w) => (
-                    <option key={w} value={w}>
-                      {w}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
-                Visit type
-                <select
-                  value={draft.visit_type ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, visit_type: e.target.value }))}
-                  className={inputClass}
-                >
-                  <option value="">—</option>
-                  {visitTypes.map((t) => (
+                  {conferenceTypes.map((t) => (
                     <option key={t} value={t}>
                       {t}
                     </option>
@@ -839,92 +671,42 @@ export function VisitationsPage() {
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
-                Cooperation level
+                Facilitator
                 <select
-                  value={draft.family_cooperation_level ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, family_cooperation_level: e.target.value }))}
+                  value={draft.facilitator ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, facilitator: e.target.value }))}
                   className={inputClass}
                 >
                   <option value="">—</option>
-                  {cooperationLevels.map((lvl) => (
-                    <option key={lvl} value={lvl}>
-                      {lvl}
+                  {facilitators.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
                     </option>
                   ))}
                 </select>
               </label>
 
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest">
-                Outcome
+              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest md:col-span-2">
+                Status
                 <select
-                  value={draft.visit_outcome ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, visit_outcome: e.target.value }))}
+                  value={draft.status ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}
                   className={inputClass}
                 >
-                  <option value="">—</option>
-                  {outcomes.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
-                Location visited
-                <input value={draft.location_visited ?? ''} onChange={(e) => setDraft((d) => ({ ...d, location_visited: e.target.value }))} className={inputClass} />
-              </label>
-
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
-                Family members present
-                <input
-                  value={draft.family_members_present ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, family_members_present: e.target.value }))}
-                  className={inputClass}
-                />
-              </label>
-
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
-                Purpose
-                <textarea rows={2} value={draft.purpose ?? ''} onChange={(e) => setDraft((d) => ({ ...d, purpose: e.target.value }))} className={inputClass} />
-              </label>
-
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
-                Observations
+                Notes
                 <textarea
                   rows={4}
-                  value={draft.observations ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, observations: e.target.value }))}
-                  className={inputClass}
-                />
-              </label>
-
-              <label className="flex items-center gap-2 text-sm text-[var(--wt-text)] col-span-1 md:col-span-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(draft.safety_concerns_noted)}
-                  onChange={(e) => setDraft((d) => ({ ...d, safety_concerns_noted: e.target.checked }))}
-                  className="rounded border-[var(--wt-border)]"
-                />
-                Safety concerns noted
-              </label>
-
-              <label className="flex items-center gap-2 text-sm text-[var(--wt-text)] col-span-1 md:col-span-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={Boolean(draft.follow_up_needed)}
-                  onChange={(e) => setDraft((d) => ({ ...d, follow_up_needed: e.target.checked }))}
-                  className="rounded border-[var(--wt-border)]"
-                />
-                Follow-up needed
-              </label>
-
-              <label className="text-xs text-[var(--wt-text-2)] uppercase tracking-widest col-span-1 md:col-span-2">
-                Follow-up notes
-                <textarea
-                  rows={2}
-                  value={draft.follow_up_notes ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, follow_up_notes: e.target.value }))}
+                  value={draft.notes ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
                   className={inputClass}
                 />
               </label>
@@ -956,8 +738,8 @@ export function VisitationsPage() {
 
       {deleting && (
         <ModalShell
-          title="Delete visitation?"
-          subtitle={`This will permanently delete visitation #${deleting.visitation_id}.`}
+          title="Delete conference?"
+          subtitle={`This will permanently delete conference #${deleting.case_conference_id}.`}
           onClose={() => setDeleting(null)}
         >
           <div className="space-y-4">
@@ -982,9 +764,6 @@ export function VisitationsPage() {
           </div>
         </ModalShell>
       )}
-        </>
-      )}
     </div>
   )
 }
-

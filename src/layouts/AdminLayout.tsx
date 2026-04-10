@@ -33,7 +33,7 @@ const navItems = [
   { to: '/portal/donors', label: 'Donations and Allocations', icon: Users },
   { to: '/portal/caseload', label: 'Caseload Inventory', icon: FolderOpen },
   { to: '/portal/process-recordings', label: 'Process Recordings', icon: FileText },
-  { to: '/portal/visitations', label: 'Visitations', icon: ClipboardList },
+  { to: '/portal/visitations', label: 'Visitations & Conferences', icon: ClipboardList },
   { to: '/portal/reports', label: 'Reports & Analytics', icon: BarChart3 },
   { to: '/portal/social-media', label: 'Social Media', icon: Share2 },
   { to: '/portal/your-donations', label: 'Your Donations', icon: Heart },

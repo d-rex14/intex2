@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
   BarChart3,
@@ -13,6 +14,7 @@ import { useSupabaseQuery } from '../../hooks/useSupabaseQuery'
 import { PORTAL_DASHBOARD_INVALIDATE } from '../../lib/portalDataEvents'
 import { isStaffLike, ROLE_IDS } from '../../lib/roles'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
+import { formatFriendlyDate, residentLabelFromRow } from './visitationsShared'
 
 type SafehouseRow = {
   safehouse_id: number
@@ -20,6 +22,13 @@ type SafehouseRow = {
   status: string | null
   current_occupancy: number | null
   capacity_girls: number | null
+}
+
+type UpcomingConferenceRow = {
+  case_conference_id: number
+  conference_date: string | null
+  resident_id: number
+  residents?: { internal_code?: string | null; case_control_no?: string | null } | null
 }
 
 type DashboardData = {
@@ -34,6 +43,7 @@ type DashboardData = {
   activeOccupancyBySafehouse: Record<number, number>
   socialPostsCount30d: number | null
   socialAvgEngagementRate30d: number | null
+  upcomingConferences: UpcomingConferenceRow[]
 }
 
 function daysAgoISO(days: number): string {
@@ -94,6 +104,7 @@ async function fetchDashboardData(): Promise<{ data: DashboardData | null; error
 
   const d30 = daysAgoISO(30)
   const d7 = daysAgoISO(7)
+  const today = daysAgoISO(0)
 
   try {
     const [activeResidents, activeResidentsRows, donations30d, process7d, incidentsOpen, plansOpen, safehouses, social30d] =
@@ -164,6 +175,18 @@ async function fetchDashboardData(): Promise<{ data: DashboardData | null; error
       activeOccupancyBySafehouse[id] = (activeOccupancyBySafehouse[id] ?? 0) + 1
     }
 
+    let upcomingConferences: UpcomingConferenceRow[] = []
+    const uc = await supabase
+      .from('case_conferences')
+      .select('case_conference_id, conference_date, resident_id, residents ( internal_code, case_control_no )')
+      .eq('status', 'Scheduled')
+      .gte('conference_date', today)
+      .order('conference_date', { ascending: true })
+      .limit(5)
+    if (!uc.error && uc.data) {
+      upcomingConferences = uc.data as UpcomingConferenceRow[]
+    }
+
     const payload: DashboardData = {
       activeResidentsCount: activeResidents.count ?? null,
       recentDonationsCount30d,
@@ -175,6 +198,7 @@ async function fetchDashboardData(): Promise<{ data: DashboardData | null; error
       activeOccupancyBySafehouse,
       socialPostsCount30d,
       socialAvgEngagementRate30d,
+      upcomingConferences,
     }
 
     return { data: payload, error: null }
@@ -342,6 +366,46 @@ export function DashboardPage() {
           )}
         </SectionCard>
       </div>
+
+      {staff && (
+        <div className="grid grid-cols-1 gap-4">
+          <SectionCard
+            title="Upcoming case conferences"
+            subtitle="Next scheduled conferences (UTC dates). Open Visitations & Conferences for full CRUD."
+          >
+            <div className="flex justify-end mb-3">
+              <Link
+                to="/portal/visitations?tab=conferences"
+                className="text-sm font-medium text-[var(--wt-accent)] hover:underline"
+              >
+                View all
+              </Link>
+            </div>
+            {loading ? (
+              <div className="flex items-center gap-3 py-5 justify-center text-sm text-[var(--wt-text-2)]">
+                <div className="w-6 h-6 border-2 border-[var(--wt-accent)] border-t-transparent rounded-full animate-spin" />
+                Loading…
+              </div>
+            ) : (data?.upcomingConferences ?? []).length === 0 ? (
+              <p className="text-sm text-[var(--wt-text-2)]">No upcoming scheduled conferences.</p>
+            ) : (
+              <ul className="space-y-2">
+                {(data?.upcomingConferences ?? []).map((row) => (
+                  <li
+                    key={row.case_conference_id}
+                    className="rounded-xl border border-[var(--wt-border)] bg-[var(--wt-bg)] px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
+                  >
+                    <span className="text-sm font-medium text-[var(--wt-text)]">{residentLabelFromRow(row)}</span>
+                    <span className="text-sm text-[var(--wt-text-2)] tabular-nums">
+                      {formatFriendlyDate(row.conference_date)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+        </div>
+      )}
 
       {isSocialRep && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
