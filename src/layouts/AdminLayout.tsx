@@ -285,12 +285,18 @@ export function AdminLayout() {
       </nav>
 
       <div className="border-t border-[var(--wt-border)] p-3">
-        {(!collapsed || mobile) && (
-          <button
-            type="button"
-            onClick={openProfileEditor}
-            className="mb-2 w-full px-2 py-1.5 rounded-lg bg-[var(--wt-surface)] border border-[var(--wt-border)] text-left hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_16%,transparent)] transition-colors"
-          >
+        <button
+          type="button"
+          onClick={openProfileEditor}
+          className={`mb-2 w-full rounded-lg bg-[var(--wt-surface)] border border-[var(--wt-border)] text-left hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_16%,transparent)] transition-colors ${
+            collapsed && !mobile ? "flex items-center justify-center p-2.5" : "px-2 py-1.5"
+          }`}
+          title={collapsed && !mobile ? "Edit profile" : undefined}
+          aria-label={collapsed && !mobile ? "Edit profile" : undefined}
+        >
+          {collapsed && !mobile ? (
+            <Cog size={18} className="text-[var(--wt-text)] shrink-0" />
+          ) : (
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-xs font-medium text-[var(--wt-text)] truncate">
@@ -302,8 +308,8 @@ export function AdminLayout() {
               </div>
               <Cog size={14} className="text-[var(--wt-text-2)] shrink-0" />
             </div>
-          </button>
-        )}
+          )}
+        </button>
         <button
           onClick={() => setSecurityOpen(true)}
           className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--wt-text-2)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_22%,transparent)] hover:text-[var(--wt-text)] transition-colors ${
@@ -470,6 +476,73 @@ export function AdminLayout() {
               <X size={16} />
             </button>
             <MfaEnroll />
+          </div>
+        </div>
+      )}
+
+      {profileOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setProfileOpen(false)}
+            role="presentation"
+          />
+          <div className="relative w-full max-w-md rounded-2xl border border-[var(--wt-border)] bg-[var(--wt-bg)] shadow-xl z-10 overflow-hidden">
+            <div className="p-6 border-b border-[var(--wt-border)] flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-display text-lg font-bold text-[var(--wt-text)]">Profile</h2>
+                <p className="text-xs text-[var(--wt-text-2)] mt-1">Update your display name and email.</p>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg p-1.5 text-[var(--wt-text-2)] hover:text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_16%,transparent)]"
+                onClick={() => setProfileOpen(false)}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)]">
+                Display name
+                <input
+                  type="text"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  autoComplete="name"
+                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]"
+                />
+              </label>
+              <label className="block text-xs uppercase tracking-widest text-[var(--wt-text-2)]">
+                Email
+                <input
+                  type="email"
+                  value={profileEmail}
+                  onChange={(e) => setProfileEmail(e.target.value)}
+                  autoComplete="email"
+                  className="mt-1 w-full rounded-lg border border-[var(--wt-border)] bg-[var(--wt-surface)] px-3 py-2 text-sm text-[var(--wt-text)] outline-none focus:border-[var(--wt-accent)]"
+                />
+              </label>
+              {profileError && <p className="text-sm text-[#dc2626]">{profileError}</p>}
+              {profileNotice && <p className="text-sm text-[var(--wt-accent)]">{profileNotice}</p>}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen(false)}
+                  className="rounded-lg border border-[var(--wt-border)] px-4 py-2 text-sm text-[var(--wt-text)] hover:bg-[color-mix(in_srgb,var(--wt-accent-2)_14%,transparent)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={profileSaving}
+                  onClick={() => void saveProfile()}
+                  className="rounded-lg bg-[var(--wt-accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {profileSaving ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
